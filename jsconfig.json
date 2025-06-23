@@ -1,0 +1,16 @@
+{
+   "compilerOptions": {
+      "baseUrl": ".",
+      "moduleResolution": "Node",
+      "paths": {
+         "modules/*": ["./modules/*"],
+         "middlewares/*": ["./middlewares/*"],
+         "config/*": ["./config/*"],
+         "database/*": ["./database/*"],
+         "kernels/*": ["./kernels/*"],
+         "models/*": ["./models/*"],
+         "utils/*": ["utils/*"]
+      }
+   },
+   "include": ["./**/*"]
+}
