@@ -98,8 +98,19 @@ exports.getConfigsByUserId = async (userId) => {
 };
 
 exports.deleteConfig = async (configId, userId) => {
-  const config = await DeviceConfig.findOne({ where: { id: configId, userId } });
-  if (!config) throw new Error("Không tìm thấy cấu hình hoặc không có quyền.");
+  // Tìm config theo id + user
+  const config = await DeviceConfig.findOne({
+    where: { id: configId, userId },
+  });
+  if (!config) {
+    throw new Error("Không tìm thấy cấu hình hoặc không có quyền.");
+  }
+  // Xoá toàn bộ components thuộc cấu hình
+  await Component.destroy({
+    where: { configId: config.id }
+  });
+  // Xoá cấu hình chính
   await config.destroy();
-  return true;
+  return { message: "Đã xoá cấu hình và các thành phần liên quan." };
 };
+
