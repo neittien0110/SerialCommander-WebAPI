@@ -18,7 +18,7 @@ router.group("/example", validate([]), (router) => {
 router.group("/configs", verifyToken, (router) => {
   router.post("/import", configController.importConfig);
   router.get("/myconfigs", configController.getConfigsByUserId);
-  router.delete("/:id", configController.deleteConfig);
+  router.delete("/:configId", configController.deleteConfig);
   router.get("/:id", configController.getConfigById);
   router.post("/share/:configId", configController.shareConfig);
   router.get("/export/:configId", configController.exportConfig);
