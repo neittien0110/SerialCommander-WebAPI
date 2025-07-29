@@ -8,7 +8,7 @@ async function startServer() {
       await sequelize.authenticate();
       console.log("Database connection has been established successfully.");
 
-       await sequelize.sync({ alter: true }); // or { force: true } to drop & recreate
+       await sequelize.sync({ alter: false }); // or { force: true } to drop & recreate
       // await sequelize.sync({ force: true });
 
       app.listen(port, () => {
