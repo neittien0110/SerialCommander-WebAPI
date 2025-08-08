@@ -59,22 +59,60 @@ exports.getConfigById = async (id) => {
     return config;
 };
 
-exports.shareConfig = async (configId, userId) => {
-    const config = await DeviceConfig.findOne({ where: { id: configId, userId } });
-    if (!config) throw new Error("Không tìm thấy cấu hình hoặc không có quyền.");
+/**
+ * Tạo mã ngẫu nhiên để share cấu hình
+ * @returns 
+ */
+function GenerateShareCode() {
+    return uuidv4().slice(0, 4);
+}
 
-    config.isShared = true;
-    config.shareCode = uuidv4().slice(0, 6); 
-    await config.save();
+/**
+ * Tạo mã ngẫu nhiên để share phiên làm việc
+ * @returns 
+ */
+function GenerateShareCode() {
+    return uuidv4().slice(0, 5);
+}
+
+/**
+ * Lấy mã share của 1 cấu hình, tự động tạo mới nếu chưa có
+ * @param {*} configId  Cấu hình cần lấy
+ * @param {*} ownerId   Tài khoản sở hữu
+ * @returns 
+ */
+exports.shareConfig = async (configId, ownerId) => {
+    const config = await DeviceConfig.findOne({ where: { id: configId, userId: ownerId } });
+    if (config == null) {
+      throw new Error("Không tìm thấy cấu hình hoặc không có quyền.");
+    }
+    // Nếu chưa chia sẻ thì hãy chia sẻ. còn nếu đã chia sẻ thì cứ thể trả về nội dung
+    if (!config.isShared) {
+      config.isShared = true;
+      // Nếu đã có mã thì tái sử dụng lại
+      if (config.shareCode == null || config.shareCode == "" ) {
+        config.shareCode = GenerateShareCode();
+      }
+      await config.save();
+    } 
     return config;
 };
 
-exports.getSharedConfig = async (shareCode) => {
+/**
+ * Lấy cấu hình thông qua mã chia sẻ 
+ */ 
+exports.getConfigByShareCode = async (shareCode) => {
     const config = await DeviceConfig.findOne({
         where: { shareCode, isShared: true },
         include: [{ model: Component, as: "components" }]
     });
-    if (!config) throw new Error("Không tìm thấy cấu hình chia sẻ.");
+    if (config == null) {
+      throw new Error(`Không tìm thấy cấu hình chia sẻ có mã ${shareCode}.`);
+    }    
+    // Nếu chưa chia sẻ thì hãy chia sẻ. còn nếu đã chia sẻ thì cứ thể trả về nội dung
+    if (!config.isShared) {
+      throw new Error(`Cấu hình tồn tại nhưng đã không còn chia sẻ với mã ${shareCode}.`);
+    }     
     return config;
 };
 

@@ -39,6 +39,12 @@ exports.shareConfig = async (req, res) => {
     }
 };
 
+/**
+ * Lấy mã chia sẻ của 1 cấu hình nào đó
+ * @alias /share/:shareCode
+ * @param {*} req  gói tin request
+ * @param {*} res  gói tin response
+ */
 exports.getSharedConfig = async (req, res) => {
     const { shareCode } = req.params;
     try {
@@ -49,6 +55,11 @@ exports.getSharedConfig = async (req, res) => {
     }
 };
 
+/**
+ * Xóa cấu hình đã lưu
+ * @param {*} req  gói tin request
+ * @param {*} res  gói tin response
+ */
 exports.exportConfig = async (req, res) => {
   const { configId } = req.params;
   const userId = req.user.id;
@@ -61,6 +72,12 @@ exports.exportConfig = async (req, res) => {
   }
 };
 
+/**
+ * Lấy cấu hình serial dựa trên id
+ * @alias  /myconfigs2
+ * @param {*} req  gói tin request
+ * @param {*} res  gói tin response
+ */
 exports.getConfigsByUserId = async (req, res) => {
   const userId = req.user.id;
 
@@ -72,6 +89,12 @@ exports.getConfigsByUserId = async (req, res) => {
   }
 };
 
+
+/**
+ * Xóa cấu hình đã lưu
+ * @param {*} req  gói tin request
+ * @param {*} res  gói tin response
+ */
 exports.deleteConfig = async (req, res) => {
   const { configId } = req.params;
   const userId = req.user.id;
