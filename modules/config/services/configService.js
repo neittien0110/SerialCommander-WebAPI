@@ -3,7 +3,7 @@ const { Component } = require("../../../models");
 const { User } = require("../../../models");
 const { v4: uuidv4 } = require("uuid");
 
-exports.importConfig = async (userId, configData) => {
+exports.importScenario = async (userId, configData) => {
     const {
         name,
         delayTime,
@@ -44,7 +44,7 @@ exports.importConfig = async (userId, configData) => {
     };
 };
 
-exports.getConfigById = async (id) => {
+exports.getScenarioById = async (id) => {
     const config = await DeviceConfig.findOne({
         where: { id },
         include: [{ model: Component, as: "components" }],
@@ -101,7 +101,7 @@ exports.shareConfig = async (configId, ownerId) => {
 /**
  * Lấy cấu hình thông qua mã chia sẻ 
  */ 
-exports.getConfigByShareCode = async (shareCode) => {
+exports.getScenarioByShareCode = async (shareCode) => {
     const config = await DeviceConfig.findOne({
         where: { shareCode, isShared: true },
         include: [{ model: Component, as: "components" }]
@@ -116,7 +116,7 @@ exports.getConfigByShareCode = async (shareCode) => {
     return config;
 };
 
-exports.exportConfig = async (configId, userId) => {
+exports.exportScenario = async (configId, userId) => {
   const config = await DeviceConfig.findOne({
     where: { id: configId, userId },
     include: [{ model: Component, as: "components" }]
@@ -125,7 +125,7 @@ exports.exportConfig = async (configId, userId) => {
   return config;
 };
 
-exports.getConfigsByUserId = async (userId) => {
+exports.getScenariosByUserId = async (userId) => {
   const configs = await DeviceConfig.findAll({
     where: { userId },
     include: [{ model: Component, as: "components" }],

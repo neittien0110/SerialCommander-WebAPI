@@ -12,21 +12,26 @@ const router = express.Router({ mergeParams: true });
 // Example route
 router.group("/example", validate([]), (router) => {
   router.get("/", exampleController.exampleRequest);
+  //router.get("/abc/:configId", configController.shareConfig);
 });
 
-// Config routes for user
-router.group("/configs", verifyToken, (router) => {
-  router.post("/import", configController.importConfig);
-  router.get("/myconfigs", configController.getConfigsByUserId);
-  router.delete("/:configId", configController.deleteConfig);
-  router.get("/:id", configController.getConfigById);
-  router.post("/share/:configId", configController.shareConfig);
-  router.get("/export/:configId", configController.exportConfig);
 
 
+// Config routes for user:   verifyToken   validate([])
+/// Các API thay đổi cấu hình serial: thêm, xóa, xuất, chia sẻ, 
+router.group("/scenarios", verifyToken, (router) => {
+  //------------------------------------------------
+  router.post("/import", configController.importScenario);
+  router.get("/export/:scenarioId", configController.exportScenario);  
+  router.post("/share/:scenarioId", configController.shareConfig);
+  //------------------------------------------------
+  router.get("/myscenarios", configController.getScenariosByUserId);
+  router.delete("/:scenarioId", configController.deleteConfig);
+  router.get("/:id", configController.getScenarioById);
 });
-//route public
-router.get("/share/:shareCode", configController.getSharedConfig);
+
+/// Các API lấy về cấu hình dựa trên mã chia sẻ
+router.get("/share/:shareCode", configController.getScenarioByShareCode);
 
 // Admin routes
 router.group("/admin/shared-configs", verifyToken, (router) => {
