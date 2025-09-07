@@ -16,6 +16,7 @@ exports.createScenario = async (req, res) => {
   }
 };
 
+
 /**
  * Kiểm tra tính hợp lệ của 1 kịch bản được upload lên
  * @alias /verify
@@ -27,13 +28,13 @@ exports.verifyScenario = (req, res) => {
 
 /**
  * Updates an existing scenario.
- * @alias /scenarios/:id
+ * @alias /update/:scenarioId
  */
 exports.updateScenario = async (req, res) => {
-  const { id } = req.params;
+  const { scenarioId } = req.params;
   const userId = req.user.id;
   try {
-    await scenarioService.updateScenario(id, userId, req.body);
+    await scenarioService.updateScenario(scenarioId, userId, req.body);
     res.status(200).json({ message: "Cập nhật kịch bản thành công." });
   } catch (error) {
     console.error("Lỗi khi cập nhật kịch bản:", error);

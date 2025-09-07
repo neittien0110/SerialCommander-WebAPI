@@ -155,15 +155,27 @@ exports.getScenarioById = async (id, userId) => {
 
 /**
  * Updates an existing scenario.
- * @param {string} id - The ID of the scenario to update.
+ * @param {string} scenarioId - The ID of the scenario to update.
  * @param {string} userId - The ID of the user who owns the scenario.
  * @param {object} updateData - The data to update the scenario with.
  * @returns {Promise<number>} A promise that resolves to the number of updated rows.
  */
-exports.updateScenario = async (id, userId, updateData) => {
+exports.updateScenario = async (scenarioId, userId, updateData) => {
   try {
-    const [updatedRows] = await Scenario.update(updateData, {
-      where: { Id: id, UserId: userId },
+    const [updatedRows] = await Scenario.update({
+      Name: updateData.Name,
+      Description: updateData.Description,
+      UserId: userId,
+      Baudrate: updateData.Baudrate,
+      Parity: updateData.Parity,
+      StopBit: updateData.StopBit,
+      DataLength: updateData.DataLength,
+      NewLine: updateData.NewLine,
+      Banner1: updateData.Banner1,
+      Banner2: updateData.Banner2,     
+      Content: JSON.stringify(updateData.Content)}, 
+      {
+      where: { Id: scenarioId, UserId: userId },
     });
     if (updatedRows === 0) {
       const error = new Error("Không tìm thấy kịch bản để cập nhật hoặc không có quyền.");

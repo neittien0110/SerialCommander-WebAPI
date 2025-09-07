@@ -14,6 +14,7 @@ const router = express.Router({ mergeParams: true });
 router.group("/scenarios", verifyToken, (router) => {
   //------------------------------------------------
   router.post("/import", scenarioController.createScenario);
+  router.post("/update/:scenarioId", scenarioController.updateScenario);
   router.get("/export/:scenarioId", scenarioController.exportScenarioById);  
   router.post("/share/:scenarioId", scenarioController.shareScenarioById);
   //------------------------------------------------
