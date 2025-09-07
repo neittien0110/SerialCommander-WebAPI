@@ -1,5 +1,14 @@
 const jwt = require("jsonwebtoken");
 
+
+/**
+ * Xác thực thực phiên đã đăng nhập
+ * @description HTTP Method có dạng
+ *  authorization: token <mã lưu trong Local Storage>
+ * @param {*} req 
+ * @param {*} res    Nếu thất bại
+ * @param {*} next   Nếu thành công
+ */
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
 

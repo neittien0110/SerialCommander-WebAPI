@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     // Một User có nhiều DeviceConfig (một người dùng có thể sở hữu nhiều cấu hình thiết bị).
     // 'models.DeviceConfig' là model 'DeviceConfig' đã được định nghĩa ở nơi khác.
     // 'foreignKey: "userId"' chỉ ra rằng cột 'userId' trong bảng 'DeviceConfig' sẽ là khóa ngoại liên kết với 'User'.
-    User.hasMany(models.DeviceConfig, {
+    User.hasMany(models.Scenario, {
       foreignKey: "userId",
     });
   };
