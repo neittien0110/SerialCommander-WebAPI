@@ -60,13 +60,13 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Parity bit configuration (none, even, odd)'
     },
-    StopBit: {
+    StopBits: {
       type: DataTypes.TINYINT,
       defaultValue: 1,
       allowNull: true,
       comment: 'Number of stop bits (1 or 2)'
     },
-    DataLength: {
+    DataBits: {
       type: DataTypes.TINYINT,
       defaultValue: 8,
       allowNull: true,

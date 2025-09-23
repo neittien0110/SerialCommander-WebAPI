@@ -73,13 +73,13 @@ exports.verifyScenario = (scenarioData) => {
   }
 
   const validStopBits = [1, 1.5, 2];
-  if (scenarioData.StopBit && !validStopBits.includes(scenarioData.StopBit)) {
-    warnings.push(`Trường "StopBit" không hợp lệ. Các giá trị hợp lệ là: ${validStopBits.join(', ')}.`);
+  if (scenarioData.StopBits && !validStopBits.includes(scenarioData.StopBits)) {
+    warnings.push(`Trường "StopBits" không hợp lệ. Các giá trị hợp lệ là: ${validStopBits.join(', ')}.`);
   }
 
-  if (scenarioData.DataLength && typeof scenarioData.DataLength !== 'number' 
-    && typeof scenarioData.DataLength !== 7 && typeof scenarioData.DataLength !== 8) {
-    warnings.push('Trường "DataLength" nên là kiểu số, với giá trị 7, hoăc 8 ');
+  if (scenarioData.DataBits && typeof scenarioData.DataBits !== 'number' 
+    && typeof scenarioData.DataBits !== 7 && typeof scenarioData.DataBits !== 8) {
+    warnings.push('Trường "DataBits" nên là kiểu số, với giá trị 7, hoăc 8 ');
   }
 
   if (scenarioData.NewLine && typeof scenarioData.NewLine !== 'string') {
@@ -115,8 +115,9 @@ exports.createScenario = async (userId, scenarioData) => {
       UserId: userId,
       Baudrate: scenarioData.Baudrate,
       Parity: scenarioData.Parity,
-      StopBit: scenarioData.StopBit,
-      DataLength: scenarioData.DataLength,
+      StopBits: scenarioData.StopBits,
+      DataBits: scenarioData.DataBits,
+      FlowControl: scenarioData.FlowControl,
       NewLine: scenarioData.NewLine,
       Banner1: scenarioData.Banner1,
       Banner2: scenarioData.Banner2,     
@@ -168,8 +169,9 @@ exports.updateScenario = async (scenarioId, userId, updateData) => {
       UserId: userId,
       Baudrate: updateData.Baudrate,
       Parity: updateData.Parity,
-      StopBit: updateData.StopBit,
-      DataLength: updateData.DataLength,
+      StopBits: updateData.StopBits,
+      DataBits: updateData.DataBits,
+      FlowControl: scenarioData.FlowControl,
       NewLine: updateData.NewLine,
       Banner1: updateData.Banner1,
       Banner2: updateData.Banner2,     
@@ -279,7 +281,7 @@ exports.getScenarioByShareCode = async (shareCode) => {
   try {
       scenario = await Scenario.findOne({
       where: { ShareCode: shareCode, IsShared: true },
-      attributes: ['Name', "Description", 'IsShared', "ShareCode", 'Baudrate', 'DataLength', 'Parity', 'StopBit', "NewLine" , 'Banner1', 'Banner2', 'Content']
+      attributes: ['Name', "Description", 'IsShared', "ShareCode", 'Baudrate', 'DataBits', 'Parity', 'StopBits', "NewLine" , "FlowControl", 'Banner1', 'Banner2', 'Content']
     });
     if (!scenario) {
       const error = new Error(`Không tìm thấy kịch bản chia sẻ với mã ${shareCode}.`);
