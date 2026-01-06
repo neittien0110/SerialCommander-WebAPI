@@ -1,0 +1,5 @@
+{
+    "required": "$field must not be empty",
+    "email": "Email is not a valid pattern",
+    "min": "Min length is $num"
+}
