@@ -9,8 +9,9 @@ async function startServer() {
       await sequelize.authenticate();
       console.log("Database connection has been established successfully.");
 
-       await sequelize.sync({ alter: false }); // or { force: true } to drop & recreate
-      // await sequelize.sync({ force: true });
+       await sequelize.sync({ alter: false }); // Set back to false after schema is updated
+      // await sequelize.sync({ alter: true }); // Temporarily set to true to add new columns (already done)
+      // await sequelize.sync({ force: true }); // to drop & recreate
 
       app.listen(port, interface, () => {
         console.log(`Server running at http://${interface}:${port}`);
