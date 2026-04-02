@@ -14,14 +14,15 @@ const verifyToken = (req, res, next) => {
 
   // Kiểm tra xem header có chứa token không
   if (!authHeader) {
-    return res.status(403).json({ message: "Token không được cung cấp" });
+    return res.status(401).json({ message: "Token không được cung cấp" });
   }
 
   // Lấy token từ header
   const token = authHeader.split(" ")[1];
 
   // Kiểm tra tính hợp lệ của token
-  jwt.verify(token, "secretKey", (err, decoded) => {
+  const secret = process.env.JWT_SECRET || "secretKey";
+  jwt.verify(token, secret, (err, decoded) => {
     if (err) {
       return res.status(401).json({ message: "Token không hợp lệ" });
     }

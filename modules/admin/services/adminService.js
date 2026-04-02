@@ -1,23 +1,22 @@
-const { DeviceConfig } = require("../../../models");
+const { Scenario } = require("../../../models");
 
 exports.getSharedConfigs = async () => {
-  return await DeviceConfig.findAll({ where: { isShared: true } });
+  return await Scenario.findAll({ where: { IsShared: true } });
 };
 
 exports.deleteSharedConfig = async (id) => {
-  const config = await DeviceConfig.findByPk(id);
-  if (!config || !config.isShared) {
+  const config = await Scenario.findByPk(id);
+  if (!config || !config.IsShared) {
     throw new Error("Không tìm thấy cấu hình chia sẻ");
   }
   await config.destroy();
   return config;
 };
-// duyệt cấu hình nếu cần 
 exports.approveSharedConfig = async (id) => {
-  const config = await DeviceConfig.findByPk(id);
+  const config = await Scenario.findByPk(id);
   if (!config) {
     throw new Error("Không tìm thấy cấu hình");
   }
-  await config.update({ isApproved: true });
+  await config.update({ IsShared: true });
   return config;
 };

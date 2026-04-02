@@ -2,7 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const PasswordReset = sequelize.define("PasswordReset", {
     UserId: {
       type: DataTypes.INTEGER,
-      allowNull: true, // Cho phép null vì migration có thể chưa chạy
+      allowNull: false,
       comment: "FK to Users.id to avoid orphan reset codes",
     },
     email: {

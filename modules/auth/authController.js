@@ -1,10 +1,11 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { User, PasswordReset } = require("../../models");
 const passport = require("../../configs/passport");
 const { sendPasswordResetEmail } = require("../../utils/emailService");
 
-const JWT_SECRET = "secretKey"; // nên đưa vào biến môi trường (.env)
+const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -156,40 +157,24 @@ exports.requestPasswordReset = async (req, res) => {
       });
     }
 
-    // Tạo mã reset 6 chữ số
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Tạo mã reset 6 chữ số bằng CSPRNG
+    const resetCode = crypto.randomInt(100000, 1000000).toString();
     
     // Thời gian hết hạn: 15 phút
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-    // Xóa các reset code cũ của user này (dùng email vì UserId có thể chưa có trong DB)
-    await PasswordReset.destroy({ where: { email } });
+    // Xóa các reset code cũ của user này
+    await PasswordReset.destroy({ where: { UserId: user.id } });
 
     // Lưu reset code mới
-    // Thử tạo với UserId, nếu lỗi thì tạo không có UserId
-    const resetData = {
+    await PasswordReset.create({
+      UserId: user.id,
       email,
       resetCode,
       expiresAt,
       used: false,
-    };
-    
-    // Thêm UserId nếu có
-    resetData.UserId = user.id;
-    
-    try {
-      await PasswordReset.create(resetData);
-    } catch (error) {
-      // Nếu lỗi do UserId không tồn tại trong database, tạo lại không có UserId
-      if (error.name === 'SequelizeDatabaseError' && 
-          (error.message.includes('UserId') || error.message.includes('Unknown column'))) {
-        delete resetData.UserId;
-        await PasswordReset.create(resetData);
-      } else {
-        throw error;
-      }
-    }
+    });
 
     // Gửi email
     try {
@@ -225,15 +210,12 @@ exports.verifyResetCode = async (req, res) => {
       return res.status(400).json({ message: "Mã reset không hợp lệ hoặc đã được sử dụng" });
     }
 
-    // Tìm reset record bằng email và code (không dùng UserId vì có thể chưa có trong DB)
-    // Chỉ select các cột tồn tại trong database để tránh lỗi
     const resetRecord = await PasswordReset.findOne({
       where: {
-        email: email,
+        UserId: user.id,
         resetCode: code,
         used: false,
       },
-      attributes: ['id', 'email', 'resetCode', 'expiresAt', 'used', 'createdAt', 'updatedAt'], // Không select UserId
     });
 
     if (!resetRecord) {
@@ -274,15 +256,12 @@ exports.resetPassword = async (req, res) => {
       return res.status(404).json({ message: "Người dùng không tồn tại" });
     }
 
-    // Tìm reset record bằng email và code (không dùng UserId vì có thể chưa có trong DB)
-    // Chỉ select các cột tồn tại trong database để tránh lỗi
     const resetRecord = await PasswordReset.findOne({
       where: {
-        email: email,
+        UserId: user.id,
         resetCode: code,
         used: false,
       },
-      attributes: ['id', 'email', 'resetCode', 'expiresAt', 'used', 'createdAt', 'updatedAt'], // Không select UserId
     });
 
     if (!resetRecord) {
@@ -294,6 +273,7 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Mã reset đã hết hạn. Vui lòng yêu cầu mã mới." });
     }
 
+    // Tìm user
     // Hash password mới
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -303,10 +283,10 @@ exports.resetPassword = async (req, res) => {
     // Đánh dấu reset code đã được sử dụng
     await resetRecord.update({ used: true });
 
-    // Xóa tất cả reset code cũ của email này (dùng email thay vì UserId)
+    // Xóa tất cả reset code cũ của email này
     await PasswordReset.destroy({
       where: {
-        email: email,
+        UserId: user.id,
         used: true 
       }
     });
