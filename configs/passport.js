@@ -28,19 +28,22 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        const email = profile.emails?.[0]?.value;
+        if (!email) {
+          return done(new Error("Google account has no email"), null);
+        }
+
         // Tìm user đã tồn tại với googleId
         let user = await User.findOne({ where: { googleId: profile.id } });
 
         if (user) {
-          // User đã tồn tại với Google account
           return done(null, user);
         }
 
         // Tìm user với email đã tồn tại (merge account)
-        user = await User.findOne({ where: { email: profile.emails[0].value } });
+        user = await User.findOne({ where: { email } });
 
         if (user) {
-          // Cập nhật user hiện có với googleId
           user.googleId = profile.id;
           user.provider = "google";
           await user.save();
@@ -50,8 +53,8 @@ passport.use(
         // Tạo user mới
         user = await User.create({
           googleId: profile.id,
-          email: profile.emails[0].value,
-          username: profile.displayName || profile.emails[0].value.split("@")[0],
+          email,
+          username: profile.displayName || email.split("@")[0],
           provider: "google",
           role: "user",
         });

@@ -32,6 +32,7 @@ module.exports = (sequelize) => {
     ShareCode: {
       type: DataTypes.STRING(12),
       allowNull: true,
+      unique: true,
       comment: 'The shareable code for public scenarios'
     },
     UserId: {
@@ -71,6 +72,12 @@ module.exports = (sequelize) => {
       defaultValue: 8,
       allowNull: true,
       comment: 'Number of data bits (7 or 8)'
+    },
+    FlowControl: {
+      type: DataTypes.STRING(10),
+      defaultValue: 'none',
+      allowNull: true,
+      comment: 'Điều khiển luồng: none | hardware'
     },
     NewLine: {
       type: DataTypes.STRING(10),

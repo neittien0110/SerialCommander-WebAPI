@@ -1,0 +1,22 @@
+{
+  "Name": "",
+  "Description": 123,
+  "Baudrate": "115200",
+  "Parity": "invalid-parity",
+  "StopBits": 3,
+  "DataBits": 9,
+  "FlowControl": "unknown",
+  "NewLine": "CRLF",
+  "Banners": "Không phải mảng",
+  "Content": [
+    {
+      "Type": "unknownType",
+      "Name": "",
+      "Labels": "không phải mảng",
+      "TxFormats": "không phải mảng",
+      "Params": {},
+      "Hint": "Ví dụ lỗi schema cho Content[0]"
+    },
+    null
+  ]
+}
