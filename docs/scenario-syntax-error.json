@@ -1,0 +1,14 @@
+{
+  "Name": "Demo lỗi cú pháp JSON",
+  "Description": "Thiếu dấu phẩy và ngoặc kép để minh họa lỗi SyntaxError",
+  "Baudrate": 115200,
+  "Content": [
+    {
+      "Type": "text",
+      "Name": "Khối 1"
+      "Labels": ["Gửi"],
+      "TxFormats": ["AT"],
+      "Params": []
+    }
+  ]
+}

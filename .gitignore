@@ -1,3 +1,5 @@
 node_modules
 upload
 .env
+**/serviceAccountKey.json
+firebase_mgnt/venv/

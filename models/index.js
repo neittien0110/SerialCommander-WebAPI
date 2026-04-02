@@ -27,7 +27,7 @@ if (config.use_env_variable) {
       port: config.port, // Cổng kết nối database
       dialect: config.dialect, // Loại database (ví dụ: 'mysql', 'postgres', 'sqlite')
       dialectOptions: config.dialectOptions, // Các tùy chọn cụ thể cho dialect
-      logging: true, // Bật logging cho Sequelize để hiển thị các câu lệnh SQL được thực thi. Có thể đặt là 'false' để tắt.
+      logging: config.logging ?? false,
     }
   );
 }

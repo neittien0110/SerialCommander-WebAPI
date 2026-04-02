@@ -1,0 +1,32 @@
+{
+  "Name": "Demo kịch bản hợp lệ đơn giản",
+  "Description": "Ví dụ file JSON đúng cú pháp và đúng schema cơ bản.",
+  "Baudrate": 115200,
+  "Parity": "none",
+  "StopBits": 1,
+  "DataBits": 8,
+  "FlowControl": "none",
+  "NewLine": "CRLF",
+  "Banners": [
+    "Ví dụ banner 1",
+    "Ví dụ banner 2"
+  ],
+  "Content": [
+    {
+      "Type": "text",
+      "Name": "Lệnh AT",
+      "Labels": ["Gửi"],
+      "TxFormats": ["AT"],
+      "Params": [],
+      "Hint": "Nhập lệnh rồi bấm Gửi."
+    },
+    {
+      "Type": "button",
+      "Name": "Nút bật đèn",
+      "Labels": ["Bật đèn"],
+      "TxFormats": ["LED ON"],
+      "Params": null,
+      "Hint": "Bấm để gửi lệnh bật đèn."
+    }
+  ]
+}

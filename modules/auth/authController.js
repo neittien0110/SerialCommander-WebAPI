@@ -1,10 +1,11 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const { User, PasswordReset } = require("../../models");
 const passport = require("../../configs/passport");
 const { sendPasswordResetEmail } = require("../../utils/emailService");
 
-const JWT_SECRET = "secretKey"; // nên đưa vào biến môi trường (.env)
+const JWT_SECRET = process.env.JWT_SECRET || "secretKey";
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -156,8 +157,8 @@ exports.requestPasswordReset = async (req, res) => {
       });
     }
 
-    // Tạo mã reset 6 chữ số
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Tạo mã reset 6 chữ số bằng CSPRNG
+    const resetCode = crypto.randomInt(100000, 1000000).toString();
     
     // Thời gian hết hạn: 15 phút
     const expiresAt = new Date();

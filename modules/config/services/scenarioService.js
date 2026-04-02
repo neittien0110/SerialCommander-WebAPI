@@ -1,5 +1,40 @@
 const { Scenario } = require("../../../models");
 const { v4: uuidv4 } = require("uuid");
+const scenarioFirestore = require("./scenarioFirestoreService");
+
+function toPlainRecord(record) {
+  if (!record) return null;
+  return record.dataValues ? { ...record.dataValues } : { ...record };
+}
+
+function contentInputToArray(content) {
+  if (Array.isArray(content)) return content;
+  if (content == null || content === "") return [];
+  if (typeof content === "string") {
+    try {
+      const parsed = JSON.parse(content);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+/**
+ * Gắn Content (chuỗi JSON mảng) từ Firestore hoặc giữ bản legacy trong MySQL.
+ */
+async function attachScenarioContent(record) {
+  const out = toPlainRecord(record);
+  if (!out) return null;
+  const fromFs = await scenarioFirestore.getScenarioContentArray(out.Id);
+  if (fromFs != null) {
+    out.Content = JSON.stringify(fromFs);
+  } else if (out.Content == null || out.Content === "") {
+    out.Content = JSON.stringify([]);
+  }
+  return out;
+}
 
 /**
  * Verifies if the scenario data is valid and conforms to the Scenario model's requirements.
@@ -77,9 +112,9 @@ exports.verifyScenario = (scenarioData) => {
     warnings.push(`Trường "StopBits" không hợp lệ. Các giá trị hợp lệ là: ${validStopBits.join(', ')}.`);
   }
 
-  if (scenarioData.DataBits && typeof scenarioData.DataBits !== 'number' 
-    && typeof scenarioData.DataBits !== 7 && typeof scenarioData.DataBits !== 8) {
-    warnings.push('Trường "DataBits" nên là kiểu số, với giá trị 7, hoăc 8 ');
+  if (scenarioData.DataBits && (typeof scenarioData.DataBits !== 'number'
+    || (scenarioData.DataBits !== 7 && scenarioData.DataBits !== 8))) {
+    warnings.push('Trường "DataBits" nên là kiểu số, với giá trị 7 hoặc 8.');
   }
 
   if (scenarioData.NewLine && typeof scenarioData.NewLine !== 'string') {
@@ -108,8 +143,11 @@ exports.verifyScenario = (scenarioData) => {
  * @returns {Promise<object>} A promise that resolves to the created scenario object.
  */
 exports.createScenario = async (userId, scenarioData) => {
+  const contentArr = contentInputToArray(scenarioData.Content);
+  const banners = Array.isArray(scenarioData.Banners) ? scenarioData.Banners : [];
+  let newScenario;
   try {
-    const newScenario = await Scenario.create({
+    newScenario = await Scenario.create({
       Name: scenarioData.Name,
       Description: scenarioData.Description,
       UserId: userId,
@@ -119,15 +157,22 @@ exports.createScenario = async (userId, scenarioData) => {
       DataBits: scenarioData.DataBits,
       FlowControl: scenarioData.FlowControl,
       NewLine: scenarioData.NewLine,
-      Banner1: scenarioData.Banner1,
-      Banner2: scenarioData.Banner2,     
-      Content: JSON.stringify(scenarioData.Content),
+      Banner1: banners[0] ?? scenarioData.Banner1 ?? null,
+      Banner2: banners[1] ?? scenarioData.Banner2 ?? null,
+      Content: null,
     });
-    return newScenario;
   } catch (error) {
-    console.error('Nội dung bản ghi:', error);
-    throw new Error('Failed to create scenario.');
+    throw new Error("Failed to create scenario: " + error.message);
   }
+  try {
+    await scenarioFirestore.saveScenarioContent(newScenario.Id, contentArr);
+  } catch (e) {
+    await Scenario.destroy({ where: { Id: newScenario.Id } });
+    throw e;
+  }
+  const plain = toPlainRecord(newScenario);
+  plain.Content = JSON.stringify(contentArr);
+  return plain;
 };
 
 /**
@@ -137,21 +182,15 @@ exports.createScenario = async (userId, scenarioData) => {
  * @returns {Promise<object>} Toàn bộ bản ghi về Kịch bản trong DB
  */
 exports.getScenarioById = async (id, userId) => {
-  try {
-    const scenario = await Scenario.findOne({
-      where: { Id: id, UserId: userId },
-    });
-    if (!scenario) {
-      const error = new Error("Không tìm thấy kịch bản hoặc không có quyền truy cập.");
-      error.statusCode = 404;
-      throw error;
-    }
-    // Lưu ý, chỉ trả về đúng dữ liệu thô, bỏ qua các metadata của sequelize
-    return scenario.dataValues;
-  } catch (error) {
-    console.error('Error in ScenarioService.getScenarioById:', error);
-    throw new Error('Failed to retrieve scenario.');
+  const scenario = await Scenario.findOne({
+    where: { Id: id, UserId: userId },
+  });
+  if (!scenario) {
+    const error = new Error("Không tìm thấy kịch bản hoặc không có quyền truy cập.");
+    error.statusCode = 404;
+    throw error;
   }
+  return attachScenarioContent(scenario);
 };
 
 /**
@@ -162,33 +201,31 @@ exports.getScenarioById = async (id, userId) => {
  * @returns {Promise<number>} A promise that resolves to the number of updated rows.
  */
 exports.updateScenario = async (scenarioId, userId, updateData) => {
-  try {
-    const [updatedRows] = await Scenario.update({
-      Name: updateData.Name,
-      Description: updateData.Description,
-      UserId: userId,
-      Baudrate: updateData.Baudrate,
-      Parity: updateData.Parity,
-      StopBits: updateData.StopBits,
-      DataBits: updateData.DataBits,
-      FlowControl: scenarioData.FlowControl,
-      NewLine: updateData.NewLine,
-      Banner1: updateData.Banner1,
-      Banner2: updateData.Banner2,     
-      Content: JSON.stringify(updateData.Content)}, 
-      {
-      where: { Id: scenarioId, UserId: userId },
-    });
-    if (updatedRows === 0) {
-      const error = new Error("Không tìm thấy kịch bản để cập nhật hoặc không có quyền.");
-      error.statusCode = 404;
-      throw error;
-    }
-    return updatedRows;
-  } catch (error) {
-    console.error('Error in ScenarioService.updateScenario:', error);
-    throw new Error('Failed to update scenario.');
+  const banners = Array.isArray(updateData.Banners) ? updateData.Banners : [];
+  const contentArr = contentInputToArray(updateData.Content);
+  const [updatedRows] = await Scenario.update({
+    Name: updateData.Name,
+    Description: updateData.Description,
+    UserId: userId,
+    Baudrate: updateData.Baudrate,
+    Parity: updateData.Parity,
+    StopBits: updateData.StopBits,
+    DataBits: updateData.DataBits,
+    FlowControl: updateData.FlowControl,
+    NewLine: updateData.NewLine,
+    Banner1: banners[0] ?? updateData.Banner1 ?? null,
+    Banner2: banners[1] ?? updateData.Banner2 ?? null,
+    Content: null,
+  }, {
+    where: { Id: scenarioId, UserId: userId },
+  });
+  if (updatedRows === 0) {
+    const error = new Error("Không tìm thấy kịch bản để cập nhật hoặc không có quyền.");
+    error.statusCode = 404;
+    throw error;
   }
+  await scenarioFirestore.saveScenarioContent(scenarioId, contentArr);
+  return updatedRows;
 };
 
 /**
@@ -198,20 +235,16 @@ exports.updateScenario = async (scenarioId, userId, updateData) => {
  * @returns {Promise<number>} A promise that resolves to the number of deleted rows.
  */
 exports.deleteScenario = async (id, userId) => {
-  try {
-    const deletedRows = await Scenario.destroy({
-      where: { Id: id, UserId: userId },
-    });
-    if (deletedRows === 0) {
-      const error = new Error("Không tìm thấy kịch bản để xóa hoặc không có quyền.");
-      error.statusCode = 404;
-      throw error;
-    }
-    return deletedRows;
-  } catch (error) {
-    console.error('Error in ScenarioService.deleteScenario:', error);
-    throw new Error('Failed to delete scenario.');
+  const deletedRows = await Scenario.destroy({
+    where: { Id: id, UserId: userId },
+  });
+  if (deletedRows === 0) {
+    const error = new Error("Không tìm thấy kịch bản để xóa hoặc không có quyền.");
+    error.statusCode = 404;
+    throw error;
   }
+  await scenarioFirestore.deleteScenarioContent(id);
+  return deletedRows;
 };
 
 /**
@@ -220,16 +253,10 @@ exports.deleteScenario = async (id, userId) => {
  * @returns {Promise<Array<object>>} A promise that resolves to an array of scenario objects.
  */
 exports.getScenariosByUserId = async (userId) => {
-  try {
-    const scenarios = await Scenario.findAll({
-      where: { UserId: userId },
-      order: [['CreatedAt', 'DESC']],
-    });
-    return scenarios;
-  } catch (error) {
-    console.error('Error in ScenarioService.getScenariosByUserId:', error);
-    throw new Error('Failed to retrieve scenarios for the user.');
-  }
+  return await Scenario.findAll({
+    where: { UserId: userId },
+    order: [['CreatedAt', 'DESC']],
+  });
 };
 
 
@@ -248,27 +275,20 @@ function generateShareCode() {
  * @returns {Promise<object>} A promise that resolves to the updated scenario object with a share code.
  */
 exports.shareScenario = async (id, userId) => {
-  try {
-    const scenario = await Scenario.findOne({
-      where: { Id: id, UserId: userId }
-    });
-    if (!scenario) {
-      const error = new Error("Không tìm thấy kịch bản hoặc không có quyền.");
-      error.statusCode = 404;
-      throw error;
-    }
-    // Đảo ngược tình trạng chia sẻ. Chia sẻ --> Ngừng ---> Chia sẻ
-    scenario.IsShared = !scenario.IsShared;
-    // Nếu chưa có mã chia sẻ thì tạo mới.    
-    if (!scenario.ShareCode) {
-      scenario.ShareCode = generateShareCode();
-    }
-    await scenario.save();
-    return scenario;
-  } catch (error) {
-    console.error('Error in ScenarioService.shareScenario:', error);
-    throw new Error('Failed to share scenario.');
+  const scenario = await Scenario.findOne({
+    where: { Id: id, UserId: userId }
+  });
+  if (!scenario) {
+    const error = new Error("Không tìm thấy kịch bản hoặc không có quyền.");
+    error.statusCode = 404;
+    throw error;
   }
+  scenario.IsShared = !scenario.IsShared;
+  if (!scenario.ShareCode) {
+    scenario.ShareCode = generateShareCode();
+  }
+  await scenario.save();
+  return scenario;
 };
 
 /**
@@ -277,19 +297,30 @@ exports.shareScenario = async (id, userId) => {
  * @returns {Promise<object>} A promise that resolves to the shared scenario object.
  */
 exports.getScenarioByShareCode = async (shareCode) => {
-  let scenario;
-  try {
-      scenario = await Scenario.findOne({
-      where: { ShareCode: shareCode, IsShared: true },
-      attributes: ['Name', "Description", 'IsShared', "ShareCode", 'Baudrate', 'DataBits', 'Parity', 'StopBits', "NewLine" , "FlowControl", 'Banner1', 'Banner2', 'Content']
-    });
-    if (!scenario) {
-      const error = new Error(`Không tìm thấy kịch bản chia sẻ với mã ${shareCode}.`);
-      error.statusCode = 404;
-      throw error;
-    }
-  } catch (error) {
-    throw new Error('Lỗi truy cập DB.');
+  const scenario = await Scenario.findOne({
+    where: { ShareCode: shareCode, IsShared: true },
+    attributes: [
+      "Id",
+      "Name",
+      "Description",
+      "IsShared",
+      "ShareCode",
+      "Baudrate",
+      "DataBits",
+      "Parity",
+      "StopBits",
+      "NewLine",
+      "FlowControl",
+      "Banner1",
+      "Banner2",
+      "Content",
+    ],
+  });
+  if (!scenario) {
+    const error = new Error(`Không tìm thấy kịch bản chia sẻ với mã ${shareCode}.`);
+    error.statusCode = 404;
+    throw error;
   }
-  return scenario;
+  const enriched = await attachScenarioContent(scenario);
+  return { dataValues: enriched };
 };

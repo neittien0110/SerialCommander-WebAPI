@@ -3,10 +3,13 @@ const express = require("express");
 
 const { verifyToken, verifyAdmin } = require("../kernels/middlewares/authMiddleware");
 const { validate } = require("kernels/validations");
-const scenarioController  = require("../modules/config/controllers/scenarioController");
+const scenarioController = require("../modules/config/controllers/scenarioController");
 const adminController = require("../modules/admin/controllers/adminController");
 
 const router = express.Router({ mergeParams: true });
+
+// Middleware để đọc body dạng text (cho kiểm tra file .json thô)
+const textBodyParser = express.text({ type: "text/plain", limit: "2mb" });
 
 
 // Config routes for user:   verifyToken   validate([])
@@ -25,6 +28,8 @@ router.group("/scenarios", verifyToken, (router) => {
 
 /// Các API lấy về cấu hình dựa trên mã chia sẻ
 router.post("/verify", scenarioController.verifyScenario);
+/// Kiểm tra cú pháp file .json kịch bản (gửi nội dung file với Content-Type: text/plain)
+router.post("/verify-file", textBodyParser, scenarioController.verifyScenarioFile);
 router.get("/share/:shareCode", scenarioController.getScenarioByShareCode);
 
 // Admin routes

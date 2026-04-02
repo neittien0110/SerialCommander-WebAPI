@@ -38,3 +38,5 @@ CREATE TABLE IF NOT EXISTS `UserActivities` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Bảng lưu lịch sử hoạt động của user';
 
 
+
+
