@@ -1,4 +1,5 @@
 const scenarioService = require("../services/scenarioService");
+const { validateScenarioFile } = require("../services/scenarioFileValidator");
 
 /**
  * Creates a new scenario for the authenticated user.
@@ -8,22 +9,32 @@ exports.createScenario = async (req, res) => {
   const userId = req.user.id;
   try {
     const newScenario = await scenarioService.createScenario(userId, req.body);
-    console.log(newScenario);
     res.status(201).json({ message: "Tạo kịch bản thành công.", scenario: newScenario });
   } catch (error) {
     console.error("Lỗi khi tạo kịch bản:", error);
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
 
 /**
- * Kiểm tra tính hợp lệ của 1 kịch bản được upload lên
+ * Kiểm tra tính hợp lệ của 1 kịch bản được upload lên (body là object JSON).
  * @alias /verify
  */
 exports.verifyScenario = (req, res) => {
   const messages = scenarioService.verifyScenario(req.body);
   res.status(200).json(messages);
+};
+
+/**
+ * Kiểm tra cú pháp file .json kịch bản (body là chuỗi thô, Content-Type: text/plain).
+ * Trả về lỗi/cảnh báo kèm dòng, cột và đường dẫn (path).
+ * @alias /verify-file
+ */
+exports.verifyScenarioFile = (req, res) => {
+  const raw = typeof req.body === "string" ? req.body : (req.body && req.body.content);
+  const result = validateScenarioFile(raw);
+  res.status(200).json(result);
 };
 
 /**
@@ -67,8 +78,11 @@ exports.deleteScenario = async (req, res) => {
 exports.getScenarioByShareCode = async (req, res) => {
   const { shareCode } = req.params;
   try {
-    const scenario = await scenarioService.getScenarioByShareCode(shareCode);
-    res.status(200).json(scenario);
+    const raw = await scenarioService.getScenarioByShareCode(shareCode);
+    const record = raw.dataValues ?? raw;
+    const banners = [record.Banner1, record.Banner2].filter(Boolean);
+    const { Banner1, Banner2, ...rest } = record;
+    res.status(200).json({ ...rest, Banners: banners });
   } catch (error) {
     console.error("Lỗi khi lấy kịch bản chia sẻ:", error);
     res.status(error.statusCode || 500).json({ error: error.message });
@@ -85,10 +99,14 @@ exports.getScenarioById = async (req, res) => {
   const { scenarioId } = req.params;
   const userId = req.user.id;
   try {
-    const scenario = await scenarioService.getScenarioById(scenarioId, userId);    
-    res.status(200).json(scenario);
+    const record = await scenarioService.getScenarioById(scenarioId, userId);
+    const banners = [record.Banner1, record.Banner2].filter(Boolean);
+    const { Banner1, Banner2, ...rest } = record;
+    res.status(200).json({ ...rest, Banners: banners });
   } catch (error) {
-    console.error("Lỗi khi lấy kịch bản:", error);
+    if (error.statusCode !== 404) {
+      console.error("Lỗi khi lấy kịch bản:", error);
+    }
     res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
@@ -103,16 +121,21 @@ exports.exportScenarioById = async (req, res) => {
   const { scenarioId } = req.params;
   const userId = req.user.id;
   try {
-    const record = await scenarioService.getScenarioById(scenarioId, userId) ;
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(record.Name+".json")}`);
-    const parsedContent = JSON.parse(record.Content);
-    const scenario = {
-      ...record,
-      Content: parsedContent,
-    };    
+    const record = await scenarioService.getScenarioById(scenarioId, userId);
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(record.Content);
+    } catch {
+      parsedContent = [];
+    }
+    // Chuyển Banner1/Banner2 sang mảng Banners để đồng nhất với file format
+    const banners = [record.Banner1, record.Banner2].filter(Boolean);
+    const { Banner1, Banner2, ...rest } = record;
+    const scenario = { ...rest, Banners: banners, Content: parsedContent };
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(record.Name + ".json")}`);
     res.status(200).json(scenario);
   } catch (error) {
-    console.error("Lỗi khi lấy kịch bản:", error);
+    console.error("Lỗi khi xuất kịch bản:", error);
     res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
@@ -123,7 +146,6 @@ exports.exportScenarioById = async (req, res) => {
 exports.getScenariosByUserId = async (req, res) => {
   const userId = req.user.id;
   try {
-    console.log("sfds");
     const scenarios = await scenarioService.getScenariosByUserId(userId);
     res.status(200).json(scenarios);
   } catch (error) {
@@ -142,14 +164,14 @@ exports.shareScenarioById = async (req, res) => {
     const scenario = await scenarioService.shareScenario(scenarioId, userId);
     if (scenario.IsShared) {
       res.status(200).json({
-        Message: "Chia sẻ kịch bản thành công.",
+        message: "Chia sẻ kịch bản thành công.",
         ShareCode: scenario.ShareCode,
-        IsShared: scenario.IsShared
+        IsShared: scenario.IsShared,
       });
     } else {
       res.status(200).json({
         message: "Đã ngừng chia sẻ để sử dụng cá nhân.",
-        IsShared: scenario.IsShared
+        IsShared: scenario.IsShared,
       });
     }
   } catch (error) {
