@@ -99,13 +99,18 @@ exports.verifySession = async (req, res) => {
   /** Tạo stationId server-side và lưu mapping để host có thể kick đúng người. */
   const stationId = await remoteSessionService.registerStation(normalizedId, requestUserId);
 
-  const stationUser = await User.findByPk(requestUserId, {
-    attributes: ["username", "email"],
-  });
-  const displayName =
-    stationUser?.username?.trim() ||
-    stationUser?.email?.split("@")[0] ||
-    `Máy trạm ${stationId.slice(0, 4)}`;
+  let displayName = `Máy trạm ${stationId.slice(0, 4)}`;
+  try {
+    const stationUser = await User.findByPk(requestUserId, {
+      attributes: ["username", "email"],
+    });
+    displayName =
+      stationUser?.username?.trim() ||
+      stationUser?.email?.split("@")[0] ||
+      displayName;
+  } catch {
+    /* CI / dev không có DB — giữ fallback displayName */
+  }
 
   /** Station: đảm bảo user có trong passwd + HUP (tránh host đã tạo nhưng broker chưa reload). */
   const passwdSync = await mosquittoPasswdSync.ensureMqttBrokerUser(

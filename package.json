@@ -14,7 +14,7 @@
     "secrets": "node scripts/generate-secrets.js",
     "test": "jest --detectOpenHandles --verbose --forceExit",
     "test:unit": "jest --config jest.unit.config.js --detectOpenHandles --verbose --forceExit",
-    "test:coverage": "jest --coverage --runInBand",
+    "test:coverage": "jest --coverage --runInBand --forceExit",
     "openapi:generate": "node scripts/generate-openapi.js",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
     "preflight": "NODE_ENV=production node scripts/preflight.js",
