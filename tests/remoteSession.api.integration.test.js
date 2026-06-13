@@ -76,4 +76,82 @@ describe("Remote session API integration (real service layer)", () => {
       .send({ sessionId: created.sessionId, mqttPasswordToken: "wrong-token-value" })
       .expect(401);
   });
+
+  test("POST kick-station → rotate mã; mã cũ 403, mã mới join được", async () => {
+    const created = await remoteSessionService.createRemoteSession(30);
+    const oldChallenge = created.joinChallenge;
+
+    const joinRes = await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(60))
+      .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
+      .expect(200);
+
+    const stationId = joinRes.body.stationId;
+    expect(stationId).toMatch(/^[a-f0-9]{8}$/);
+
+    const kickRes = await request(app)
+      .post("/api/remote/session/kick-station")
+      .set(authHeader(30))
+      .send({ sessionId: created.sessionId, stationId })
+      .expect(200);
+
+    const newChallenge = kickRes.body.joinChallenge;
+    expect(newChallenge).toMatch(/^[a-f0-9]{32}$/);
+    expect(newChallenge).not.toBe(oldChallenge);
+
+    await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(60))
+      .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
+      .expect(403);
+
+    const rejoin = await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(60))
+      .send({ sessionId: created.sessionId, joinChallenge: newChallenge })
+      .expect(200);
+
+    expect(rejoin.body.stationId).toMatch(/^[a-f0-9]{8}$/);
+    expect(rejoin.body.stationId).not.toBe(stationId);
+  });
+
+  test("POST kick-station — station khác vẫn join bằng mã mới sau kick 1 người", async () => {
+    const created = await remoteSessionService.createRemoteSession(31);
+    const oldChallenge = created.joinChallenge;
+
+    const stationB = await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(61))
+      .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
+      .expect(200);
+
+    const stationA = await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(62))
+      .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
+      .expect(200);
+
+    const kickRes = await request(app)
+      .post("/api/remote/session/kick-station")
+      .set(authHeader(31))
+      .send({ sessionId: created.sessionId, stationId: stationA.body.stationId })
+      .expect(200);
+
+    const newChallenge = kickRes.body.joinChallenge;
+
+    await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(62))
+      .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
+      .expect(403);
+
+    expect(stationB.body.stationId).toMatch(/^[a-f0-9]{8}$/);
+
+    await request(app)
+      .post("/api/remote/session/verify")
+      .set(authHeader(62))
+      .send({ sessionId: created.sessionId, joinChallenge: newChallenge })
+      .expect(200);
+  });
 });

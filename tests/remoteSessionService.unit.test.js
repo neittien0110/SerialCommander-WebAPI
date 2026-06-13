@@ -115,4 +115,56 @@ describe("remoteSessionService", () => {
     expect(result.ended).toBe(false);
     expect(result.reason).toBe("invalid");
   });
+
+  test("kickStationById: rotate joinChallenge — mã cũ hết hiệu lực, mã mới join được", async () => {
+    const session = await remoteSessionService.createRemoteSession(20);
+    const oldChallenge = session.joinChallenge;
+    const stationUserId = 88;
+    const stationId = await remoteSessionService.registerStation(session.sessionId, stationUserId);
+
+    const result = await remoteSessionService.kickStationById(
+      session.sessionId,
+      stationId,
+      20
+    );
+    expect(result.kicked).toBe(true);
+    expect(result.joinChallenge).toMatch(/^[a-f0-9]{32}$/);
+    expect(result.joinChallenge).not.toBe(oldChallenge);
+
+    const record = await remoteSessionService.getSessionRecord(session.sessionId);
+    expect(record.joinChallenge).toBe(result.joinChallenge);
+    expect(
+      remoteSessionService.isAuthorizedForCredentials(record, stationUserId, oldChallenge)
+    ).toBe(false);
+    expect(
+      remoteSessionService.isAuthorizedForCredentials(
+        record,
+        stationUserId,
+        result.joinChallenge
+      )
+    ).toBe(true);
+
+    const newStationId = await remoteSessionService.registerStation(
+      session.sessionId,
+      stationUserId
+    );
+    expect(newStationId).toMatch(/^[a-f0-9]{8}$/);
+    expect(newStationId).not.toBe(stationId);
+  });
+
+  test("kickStationById: không phải host hoặc station không tồn tại → kicked false", async () => {
+    const session = await remoteSessionService.createRemoteSession(21);
+    const stationId = await remoteSessionService.registerStation(session.sessionId, 5);
+    const before = (await remoteSessionService.getSessionRecord(session.sessionId)).joinChallenge;
+
+    expect(
+      await remoteSessionService.kickStationById(session.sessionId, stationId, 999)
+    ).toEqual({ kicked: false });
+    expect(
+      await remoteSessionService.kickStationById(session.sessionId, "deadbeef", 21)
+    ).toEqual({ kicked: false });
+
+    const after = (await remoteSessionService.getSessionRecord(session.sessionId)).joinChallenge;
+    expect(after).toBe(before);
+  });
 });

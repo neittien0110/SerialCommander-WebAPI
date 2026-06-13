@@ -82,16 +82,7 @@ exports.verifySession = async (req, res) => {
     });
   }
 
-  /** Station join path: kiểm tra blocklist trước khi cấp credentials. */
-  const isBlocked = await remoteSessionService.isUserBlocked(normalizedId, requestUserId);
-  if (isBlocked) {
-    return sendError(
-      res, 403,
-      "Bạn đã bị host ngắt kết nối khỏi phiên này.",
-      "REMOTE_SESSION_KICKED"
-    );
-  }
-
+  /** Station join path: joinChallenge hợp lệ hoặc host. */
   if (
     !remoteSessionService.isAuthorizedForCredentials(record, requestUserId, joinChallenge)
   ) {
@@ -149,11 +140,14 @@ exports.kickSessionStation = async (req, res) => {
   if (!normalizedId || !stationId || typeof stationId !== "string") {
     return sendError(res, 400, "Thông tin phiên không hợp lệ", "BAD_REQUEST");
   }
-  const success = await remoteSessionService.kickStationById(normalizedId, stationId.trim(), requestUserId);
-  if (!success) {
+  const result = await remoteSessionService.kickStationById(normalizedId, stationId.trim(), requestUserId);
+  if (!result.kicked) {
     return sendError(res, 403, "Không có quyền hoặc máy trạm không tồn tại trong phiên", "KICK_FAILED");
   }
-  return sendSuccess(res, 200, "Đã ngắt kết nối máy trạm", { stationId });
+  return sendSuccess(res, 200, "Đã ngắt kết nối máy trạm", {
+    stationId,
+    joinChallenge: result.joinChallenge,
+  });
 };
 
 /**

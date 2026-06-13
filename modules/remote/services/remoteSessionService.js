@@ -155,19 +155,26 @@ async function registerStation(sessionId, userId) {
 }
 
 /**
- * Host kick một station theo stationId.
- * Tra mapping → lấy userId → block userId trong session.
- * Trả về false nếu không tìm thấy station hoặc requester không phải host.
+ * Host kick một station — ngắt tạm (MQTT FE) + rotate joinChallenge.
+ * Mã mời/email cũ hết hiệu lực; máy đang online khác không bị ảnh hưởng.
  */
 async function kickStationById(sessionId, stationId, requestUserId) {
-  const record = await remoteSessionStore.getSession(sessionId);
-  if (!record) return false;
-  if (!isSessionHost(record, requestUserId)) return false;
+  const normalizedId = normalizeSessionId(sessionId);
+  if (!normalizedId || !stationId) return { kicked: false };
+  const record = await remoteSessionStore.getSession(normalizedId);
+  if (!record) return { kicked: false };
+  if (!isSessionHost(record, requestUserId)) return { kicked: false };
   const stationMap = record.stationMap || {};
-  const stationUserId = stationMap[stationId];
-  if (!stationUserId) return false;
-  await remoteSessionStore.blockUser(sessionId, stationUserId);
-  return true;
+  if (!stationMap[stationId]) return { kicked: false };
+
+  const newJoinChallenge = generateJoinChallenge();
+  const applied = await remoteSessionStore.kickAndRotateInvite(
+    normalizedId,
+    stationId,
+    newJoinChallenge
+  );
+  if (!applied) return { kicked: false };
+  return { kicked: true, joinChallenge: newJoinChallenge };
 }
 
 /**
