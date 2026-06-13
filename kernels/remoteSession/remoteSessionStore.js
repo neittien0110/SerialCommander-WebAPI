@@ -333,7 +333,35 @@ async function addStationMapping(sessionId, stationId, userId) {
   }));
 }
 
-/** Block một userId — `verifySession` sẽ trả 403 cho người này. */
+/** Xóa mapping stationId sau kick — station có thể join lại với stationId mới. */
+async function removeStationMapping(sessionId, stationId) {
+  return updateSession(sessionId, (data) => {
+    const map = data.stationMap;
+    if (!map || !map[stationId]) return data;
+    const next = { ...map };
+    delete next[stationId];
+    return { ...data, stationMap: next };
+  });
+}
+
+/**
+ * Kick station + rotate joinChallenge trong một CAS update.
+ * Returns: { applied: boolean } — applied false nếu stationId không có trong map.
+ */
+async function kickAndRotateInvite(sessionId, stationId, newJoinChallenge) {
+  let applied = false;
+  const ok = await updateSession(sessionId, (data) => {
+    const map = data.stationMap;
+    if (!map || !map[stationId]) return data;
+    applied = true;
+    const next = { ...map };
+    delete next[stationId];
+    return { ...data, stationMap: next, joinChallenge: newJoinChallenge };
+  });
+  return applied && ok;
+}
+
+/** Block một userId — dự phòng ban thủ công; kick hiện không dùng. */
 async function blockUser(sessionId, userId) {
   const client = getRedisClient();
   if (client) {
@@ -406,6 +434,8 @@ module.exports = {
   deleteSession,
   updateSession,
   addStationMapping,
+  removeStationMapping,
+  kickAndRotateInvite,
   blockUser,
   isUserBlocked,
   verifySessionCredentials,
