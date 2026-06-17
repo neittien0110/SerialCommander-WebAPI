@@ -42,7 +42,7 @@ async function updateUserProfile(userId, { username }) {
     await UserActivityService.createActivity(
       userId,
       "profile_updated",
-      `Cập nhật tên hiển thị: ${check.value}`,
+      null,
       { previousUsername: previous || null, newUsername: check.value }
     );
   } catch (err) {
