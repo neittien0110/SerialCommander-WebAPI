@@ -32,7 +32,7 @@ const verifyToken = (req, res, next) => {
   const cookieToken = extractTokenFromCookie(req);
   if (cookieToken) {
     return jwt.verify(cookieToken, getJwtSecret(), (err, decoded) => {
-      if (err) {
+      if (err || decoded.type !== "access") {
         return sendError(res, 401, "Token không hợp lệ", "INVALID_TOKEN");
       }
       req.user = decoded;
@@ -68,7 +68,7 @@ const verifyToken = (req, res, next) => {
   }
 
   jwt.verify(bearerToken, getJwtSecret(), (err, decoded) => {
-    if (err) {
+    if (err || decoded.type !== "access") {
       return sendError(res, 401, "Token không hợp lệ", "INVALID_TOKEN");
     }
     req.user = decoded;

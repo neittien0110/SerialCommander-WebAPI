@@ -103,7 +103,8 @@ async function saveSession(sessionId, payload) {
     try {
       if (client.status !== "ready") await client.connect();
       await client.set(`remote:session:${sessionId}`, body, "EX", ttl);
-      return { ttlSeconds: ttl };
+      if (isProductionEnv()) return { ttlSeconds: ttl };
+      // Non-production: fall through to also write MEMORY_STORE so updateSession works.
     } catch (err) {
       logWarn("[remote-session] Redis SET failed, trying fallback", { message: err.message });
     }
@@ -130,7 +131,8 @@ async function saveSession(sessionId, payload) {
         },
       }
     );
-    return { ttlSeconds: ttl };
+    if (isProductionEnv()) return { ttlSeconds: ttl };
+    // Non-production: fall through to MEMORY_STORE so updateSession (stationMap, blockedUsers) works.
   } catch (err) {
     logWarn("[remote-session] MySQL fallback failed, using in-memory", {
       message: err.message || String(err),
@@ -158,6 +160,7 @@ async function getSession(sessionId) {
     }
   }
 
+  let mysqlRow = null;
   try {
     const { sequelize } = require("../../models");
     const { QueryTypes } = require("sequelize");
@@ -169,7 +172,13 @@ async function getSession(sessionId) {
        LIMIT 1`,
       { replacements: { sessionId }, type: QueryTypes.SELECT }
     );
-    if (rows && rows[0]) return rows[0];
+    if (rows && rows[0]) {
+      if (isProductionEnv()) {
+        logWarn("[remote-session] CRITICAL DEGRADE: Using MySQL fallback for session GET. envelopeToken is lost and defaults to mqttPasswordToken.", { sessionId });
+        return rows[0];
+      }
+      mysqlRow = rows[0]; // non-production: store partial row, prefer MEMORY_STORE below
+    }
   } catch {
     /* table may not exist in dev */
   }
@@ -177,8 +186,8 @@ async function getSession(sessionId) {
   if (!isProductionEnv()) {
     pruneMemoryStore();
     const entry = MEMORY_STORE.get(memoryKey(sessionId));
-    if (!entry || entry.expiresAtMs <= Date.now()) return null;
-    return entry.payload;
+    if (entry && entry.expiresAtMs > Date.now()) return entry.payload;
+    return mysqlRow; // MEMORY_STORE empty: fall back to MySQL partial data
   }
   return null;
 }
@@ -270,7 +279,7 @@ async function updateSession(sessionId, updater) {
       try {
         if (client.status !== "ready") await client.connect();
         const raw = await client.get(key);
-        if (!raw) return false;
+        if (!raw) break; // key not in Redis; try in-memory fallback
         const data = JSON.parse(raw);
         const updated = updater(data);
         const ttl = await client.ttl(key);
@@ -291,7 +300,7 @@ async function updateSession(sessionId, updater) {
       }
     }
     logWarn("[remote-session] updateSession: all CAS retries exhausted", { sessionId });
-    return false;
+    // Fall through to in-memory fallback in non-production.
   }
   if (isProductionEnv()) {
     return false;

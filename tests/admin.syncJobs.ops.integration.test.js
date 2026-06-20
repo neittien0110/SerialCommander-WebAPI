@@ -18,7 +18,7 @@ const app = require("index");
 
 describe("Admin SyncJobs ops API", () => {
   const adminToken = jwt.sign(
-    { id: 1, username: "admin1", role: "admin" },
+    { id: 1, username: "admin1", role: "admin", type: "access" },
     process.env.JWT_SECRET,
     { expiresIn: "1h" }
   );
@@ -47,7 +47,7 @@ describe("Admin SyncJobs ops API", () => {
   });
 
   test("403 khi user thường", async () => {
-    const userToken = jwt.sign({ id: 2, role: "user" }, process.env.JWT_SECRET, {
+    const userToken = jwt.sign({ id: 2, role: "user", type: "access" }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
     await request(app)

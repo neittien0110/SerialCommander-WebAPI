@@ -14,7 +14,8 @@ function withTimeout(promise, timeoutMs, label) {
 
 function configureRoutes(app, deps) {
   const {
-    router,
+    scenarioRoutes,
+    adminRoutes,
     swaggerUIServe,
     swaggerUISetup,
     authRoutes,
@@ -129,7 +130,8 @@ function configureRoutes(app, deps) {
     })
   );
 
-  app.use("/", router);
+  app.use("/", scenarioRoutes);
+  app.use("/admin", adminRoutes);
   app.use(
     "/api-docs",
     helmet({

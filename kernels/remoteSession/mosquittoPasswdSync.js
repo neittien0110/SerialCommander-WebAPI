@@ -118,7 +118,7 @@ function scheduleHupOnce() {
       _hupDebounceTimer = null;
       const waiters = _hupWaiters.splice(0);
       try {
-        await reloadMqttBrokerInDocker();
+        await reloadMqttBroker();
         await new Promise((r) => setTimeout(r, MOSQUITTO_RELOAD_DELAY_MS));
       } finally {
         for (const w of waiters) w();
@@ -168,6 +168,27 @@ function dockerBrokerContainerCandidates() {
   if (explicit) return [explicit];
   if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "test") return [];
   return DEFAULT_DEV_HUP_CONTAINERS;
+}
+
+async function reloadMqttBrokerOnHost() {
+  const cmd = (process.env.MQTT_BROKER_RELOAD_CMD || "").trim();
+  if (!cmd) return false;
+  try {
+    await execFileAsync("bash", ["-lc", cmd], { timeout: 15000 });
+    logInfo("[mosquitto-passwd] đã reload Mosquitto (host)", { cmd });
+    return true;
+  } catch (err) {
+    logWarn("[mosquitto-passwd] MQTT_BROKER_RELOAD_CMD thất bại", {
+      cmd,
+      message: err.message || String(err),
+    });
+    return false;
+  }
+}
+
+async function reloadMqttBroker() {
+  if (await reloadMqttBrokerOnHost()) return;
+  await reloadMqttBrokerInDocker();
 }
 
 async function reloadMqttBrokerInDocker() {

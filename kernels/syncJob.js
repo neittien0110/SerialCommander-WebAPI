@@ -10,6 +10,7 @@ const { reconcileDlqBatch } = require("./scenarioDlqReconcile");
 
 const POLL_MS = Number(process.env.SCENARIO_OUTBOX_POLL_MS || 1000);
 const DLQ_RECONCILE_EVERY_POLLS = Number(process.env.SCENARIO_DLQ_RECONCILE_EVERY_POLLS || 60);
+const DLQ_ALERT_THRESHOLD = Number(process.env.SCENARIO_DLQ_ALERT_THRESHOLD || 1);
 const BATCH_SIZE = Number(process.env.SCENARIO_OUTBOX_BATCH_SIZE || 10);
 const MAX_RETRY_DELAY_MS = Number(process.env.SCENARIO_OUTBOX_MAX_RETRY_MS || 30000);
 
@@ -33,12 +34,25 @@ function isBackoffActive(now = Date.now()) {
   return retryBlockedUntil > now;
 }
 
+async function maybeAlertOnDlqDepth(lengths) {
+  if (!lengths || lengths.dlq < DLQ_ALERT_THRESHOLD) return;
+  logWarn("[syncJob] DLQ depth exceeded alert threshold — operator action recommended", {
+    code: "SCENARIO_OUTBOX_DLQ_ALERT",
+    dlq: lengths.dlq,
+    queue: lengths.queue,
+    processing: lengths.processing,
+    threshold: DLQ_ALERT_THRESHOLD,
+  });
+  appMetrics.inc("scenario_outbox_dlq_alert_total");
+}
+
 async function maybeReconcileDlq() {
   if (DLQ_RECONCILE_EVERY_POLLS <= 0) return;
   pollCount += 1;
   if (pollCount % DLQ_RECONCILE_EVERY_POLLS !== 0) return;
   try {
     const lengths = await scenarioSyncQueue.getQueueLengths();
+    await maybeAlertOnDlqDepth(lengths);
     if (lengths.dlq <= 0) return;
     const results = await reconcileDlqBatch(10);
     if (results.length > 0) {

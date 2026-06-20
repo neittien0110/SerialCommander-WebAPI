@@ -4,6 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const { requestTraceMiddleware } = require("../middlewares/requestTraceMiddleware");
 const { verifyToken } = require("../middlewares/authMiddleware");
+const { csrfProtection } = require("../middlewares/csrfMiddleware");
 
 function isDevPrivateNetworkOrigin(origin) {
   if (process.env.NODE_ENV === "production") return false;
@@ -23,6 +24,24 @@ function isDevPrivateNetworkOrigin(origin) {
   } catch {
     return false;
   }
+  return false;
+}
+
+/**
+ * Origin có nằm trong allowlist FE không (dùng chung cho CORS và CSRF guard).
+ * origin rỗng (same-origin / client không phải trình duyệt) coi như hợp lệ.
+ */
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  const configured =
+    process.env.FRONTEND_URLS || process.env.FRONTEND_URL || "http://localhost:5173";
+  const allowlist = configured
+    .split(",")
+    .map((x) => x.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  const normalizedOrigin = origin.replace(/\/+$/, "");
+  if (allowlist.includes(normalizedOrigin)) return true;
+  if (isDevPrivateNetworkOrigin(normalizedOrigin)) return true;
   return false;
 }
 
@@ -69,30 +88,18 @@ function configureSecurity(app) {
 
   app.use(
     cors({
-      origin: (origin, cb) => {
-        if (!origin) return cb(null, true);
-
-        const configured = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || "http://localhost:5173";
-        const allowlist = configured
-          .split(",")
-          .map((x) => x.trim().replace(/\/+$/, ""))
-          .filter(Boolean);
-        const normalizedOrigin = origin.replace(/\/+$/, "");
-
-        if (allowlist.includes(normalizedOrigin)) return cb(null, true);
-
-        if (isDevPrivateNetworkOrigin(normalizedOrigin)) {
-          return cb(null, true);
-        }
-
-        return cb(null, false);
-      },
+      origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
       credentials: true,
       exposedHeaders: ["X-Request-Id"],
     })
   );
 
+  // CSRF guard: chặn request thay đổi trạng thái được xác thực bằng cookie nếu
+  // Origin/Referer không thuộc allowlist. Bổ sung cho SameSite, phủ cả chế độ
+  // cross-origin (COOKIE_SAME_SITE=none) và endpoint upload multipart.
+  app.use(csrfProtection);
+
   app.use("/uploads", verifyToken, express.static(path.join(__dirname, "../../uploads")));
 }
 
-module.exports = { configureSecurity, isDevPrivateNetworkOrigin };
+module.exports = { configureSecurity, isDevPrivateNetworkOrigin, isAllowedOrigin };

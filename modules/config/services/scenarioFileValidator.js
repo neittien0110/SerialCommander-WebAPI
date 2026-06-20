@@ -1,6 +1,7 @@
 "use strict";
 
 const jsonMap = require("json-source-map");
+const { validateScenarioFlow } = require("./scenarioFlowValidator");
 
 /**
  * Các kiểu khối Content hợp lệ (đồng bộ với frontend SerialAction BlockType).
@@ -26,6 +27,10 @@ const DEPRECATED_TYPE_WARNINGS = {
   toogle2: 'Type "toogle2" đã lỗi thời — dùng "toggle2".',
 };
 
+/** Khớp frontend: PollIntervalMs tối thiểu và ngân sách poll tổng khuyến nghị. */
+const POLL_MIN_INTERVAL_MS = 50;
+const MAX_AGGREGATE_POLL_HZ = 10;
+
 /**
  * Lấy dòng/cột từ vị trí ký tự trong chuỗi (1-based).
  * @param {string} raw - Chuỗi JSON gốc
@@ -38,6 +43,94 @@ function positionToLineColumn(raw, pos) {
   const line = lines.length;
   const column = lines[lines.length - 1].length;
   return { line, column };
+}
+
+/**
+ * Cảnh báo cấu hình PollIntervalMs — tránh scenario spam serial khi render.
+ * @param {Array} content
+ * @param {object} pointers
+ * @returns {Array<{ message, path, line, column }>}
+ */
+function validatePollConfiguration(content, pointers) {
+  const warnings = [];
+  if (!Array.isArray(content)) return warnings;
+
+  const activePollers = [];
+
+  content.forEach((item, index) => {
+    if (item === null || typeof item !== "object") return;
+    const pollMs = item.PollIntervalMs;
+    if (pollMs === undefined || pollMs === null) return;
+
+    const basePath = `Content[${index}]`;
+    const ptr = `/Content/${index}/PollIntervalMs`;
+    const loc = getPositionForPath(pointers, ptr);
+
+    if (typeof pollMs !== "number" || !Number.isFinite(pollMs)) {
+      warnings.push({
+        message: `PollIntervalMs của ${basePath} phải là số.`,
+        path: `${basePath}.PollIntervalMs`,
+        line: loc ? loc.line : null,
+        column: loc ? loc.column : null,
+      });
+      return;
+    }
+
+    if (pollMs > 0 && pollMs < POLL_MIN_INTERVAL_MS) {
+      warnings.push({
+        message:
+          `PollIntervalMs của ${basePath} (${pollMs}) dưới ngưỡng tối thiểu ${POLL_MIN_INTERVAL_MS}ms — client sẽ không poll.`,
+        path: `${basePath}.PollIntervalMs`,
+        line: loc ? loc.line : null,
+        column: loc ? loc.column : null,
+      });
+      return;
+    }
+
+    if (pollMs >= POLL_MIN_INTERVAL_MS) {
+      const tx0 =
+        Array.isArray(item.TxFormats) && item.TxFormats.length > 0
+          ? String(item.TxFormats[0] ?? "").trim()
+          : "";
+      if (!tx0) {
+        warnings.push({
+          message:
+            `PollIntervalMs của ${basePath} được bật nhưng TxFormats[0] trống — poll sẽ không gửi lệnh.`,
+          path: `${basePath}.TxFormats`,
+          line: loc ? loc.line : null,
+          column: loc ? loc.column : null,
+        });
+      } else {
+        activePollers.push({ pollMs, basePath });
+      }
+    }
+  });
+
+  if (activePollers.length > 1) {
+    warnings.push({
+      message:
+        `Scenario có ${activePollers.length} block bật PollIntervalMs. Nên dùng một block poll và RxSourceBlockNo cho gauge/chart để tránh quá tải serial.`,
+      path: "Content",
+      line: null,
+      column: null,
+    });
+  }
+
+  const aggregateHz = activePollers.reduce(
+    (sum, p) => sum + 1000 / Math.max(p.pollMs, POLL_MIN_INTERVAL_MS),
+    0
+  );
+  if (aggregateHz > MAX_AGGREGATE_POLL_HZ) {
+    warnings.push({
+      message:
+        `Tổng tốc độ poll ước tính ${aggregateHz.toFixed(1)} lệnh/s (khuyến nghị ≤ ${MAX_AGGREGATE_POLL_HZ}/s). Tăng PollIntervalMs hoặc gom poll về một block.`,
+      path: "Content",
+      line: null,
+      column: null,
+    });
+  }
+
+  return warnings;
 }
 
 /**
@@ -223,6 +316,8 @@ function validateContentArray(content, pointers) {
     }
   });
 
+  warnings.push(...validatePollConfiguration(content, pointers));
+
   return { errors, warnings };
 }
 
@@ -388,6 +483,14 @@ function validateScenarioFile(rawJson) {
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
     });
+  }
+
+  // --- Flow (tùy chọn): đồ thị luồng 2D
+  if (data.Flow !== undefined && data.Flow !== null) {
+    const contentArr = Array.isArray(data.Content) ? data.Content : [];
+    const flowResult = validateScenarioFlow(data.Flow, contentArr);
+    errors.push(...flowResult.errors);
+    warnings.push(...flowResult.warnings);
   }
 
   return {
