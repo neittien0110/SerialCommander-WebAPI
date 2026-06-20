@@ -17,7 +17,7 @@ const app = require("index");
 const remoteSessionService = require("modules/remote/services/remoteSessionService");
 
 function authHeader(userId = 42) {
-  const token = jwt.sign({ id: userId, role: "user" }, process.env.JWT_SECRET, { expiresIn: "1h" });
+  const token = jwt.sign({ id: userId, role: "user", type: "access" }, process.env.JWT_SECRET, { expiresIn: "1h" });
   return { Authorization: `Bearer ${token}` };
 }
 

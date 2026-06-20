@@ -35,7 +35,7 @@ const REFRESH_COOKIE_NAME = "sc_refresh_token";
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, username: user.username || user.email, role: user.role },
+    { id: user.id, username: user.username || user.email, role: user.role, type: "access" },
     getJwtSecret(),
     { expiresIn: jwtConfig.ttl }
   );

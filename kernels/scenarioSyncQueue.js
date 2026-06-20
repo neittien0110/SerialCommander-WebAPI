@@ -1,3 +1,4 @@
+const appMetrics = require("./metrics/appMetrics");
 const { logWarn } = require("./logging/appLogger");
 const { getOutboxClient } = require("./redis/redisClients");
 const scenarioSyncStatus = require("./scenarioSyncStatus");
@@ -128,7 +129,7 @@ async function ackBatch(raws = []) {
 
 /**
  * Firestore lỗi — đưa job về queue chính, hoặc DLQ nếu đã vượt MAX_RETRY_COUNT.
- * Job trong DLQ không được xử lý tự động, cần can thiệp thủ công.
+ * Worker định kỳ reconcile DLQ; khi vào DLQ ghi log/metric để ops theo dõi.
  */
 async function requeueBatch(raws = []) {
   if (!raws.length) return;
@@ -143,11 +144,13 @@ async function requeueBatch(raws = []) {
         await scenarioSyncStatus.setScenarioSyncStatus(parsed.scenarioId, "failed");
       }
       logWarn("[scenario-sync-queue] job moved to DLQ after max retries", {
+        code: "SCENARIO_OUTBOX_DLQ_ALERT",
         scenarioId: parsed?.scenarioId,
         action: parsed?.action,
         retryCount: currentRetry,
         maxRetries: MAX_RETRY_COUNT,
       });
+      appMetrics.inc("scenario_outbox_dlq_alert_total");
     } else {
       const updatedRaw = JSON.stringify({ ...parsed, retryCount: currentRetry + 1 });
       await client.lpush(QUEUE_KEY, updatedRaw);

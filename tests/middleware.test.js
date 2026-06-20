@@ -67,7 +67,7 @@ const app = buildApp();
 describe("verifyToken middleware", () => {
   test("✅ Cho phép truy cập khi token hợp lệ", async () => {
     const token = jwt.sign(
-      { id: 1, username: "testuser", role: "user" },
+      { id: 1, username: "testuser", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -82,7 +82,7 @@ describe("verifyToken middleware", () => {
 
   test("✅ Cho phép truy cập khi JWT trong HttpOnly cookie sc_auth_token", async () => {
     const token = jwt.sign(
-      { id: 7, username: "cookieuser", role: "user" },
+      { id: 7, username: "cookieuser", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -97,12 +97,12 @@ describe("verifyToken middleware", () => {
 
   test("✅ Cookie được ưu tiên hơn Bearer khi cả hai có mặt", async () => {
     const cookieToken = jwt.sign(
-      { id: 10, username: "from-cookie", role: "user" },
+      { id: 10, username: "from-cookie", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
     const bearerToken = jwt.sign(
-      { id: 99, username: "from-bearer", role: "user" },
+      { id: 99, username: "from-bearer", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -160,6 +160,38 @@ describe("verifyToken middleware", () => {
     expect(res.status).toBe(401);
   });
 
+  test("❌ Từ chối refresh token dùng làm access token (token-type confusion)", async () => {
+    // Refresh token hợp lệ về chữ ký nhưng có type="refresh"
+    const refreshToken = jwt.sign(
+      { id: 1, tokenId: "abc123", type: "refresh" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    const cookieRes = await request(app)
+      .get("/protected")
+      .set("Cookie", `sc_auth_token=${encodeURIComponent(refreshToken)}`);
+    expect(cookieRes.status).toBe(401);
+
+    const bearerRes = await request(app)
+      .get("/protected")
+      .set("Authorization", `Bearer ${refreshToken}`);
+    expect(bearerRes.status).toBe(401);
+  });
+
+  test("❌ Từ chối token không có type (token cũ trước khi patch)", async () => {
+    const legacyToken = jwt.sign(
+      { id: 1, username: "olduser", role: "user" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    const res = await request(app)
+      .get("/protected")
+      .set("Authorization", `Bearer ${legacyToken}`);
+    expect(res.status).toBe(401);
+  });
+
   test("❌ Production: Bearer bị tắt khi không có cookie", async () => {
     const prevEnv = process.env.NODE_ENV;
     const prevBearer = process.env.ALLOW_BEARER_AUTH;
@@ -168,7 +200,7 @@ describe("verifyToken middleware", () => {
       delete process.env.ALLOW_BEARER_AUTH;
 
       const token = jwt.sign(
-        { id: 2, username: "bearer-only", role: "user" },
+        { id: 2, username: "bearer-only", role: "user", type: "access" },
         process.env.JWT_SECRET,
         { expiresIn: "1h" }
       );
@@ -194,7 +226,7 @@ describe("verifyToken middleware", () => {
       delete process.env.ALLOW_BEARER_AUTH;
 
       const token = jwt.sign(
-        { id: 3, username: "cookie-prod", role: "user" },
+        { id: 3, username: "cookie-prod", role: "user", type: "access" },
         process.env.JWT_SECRET,
         { expiresIn: "1h" }
       );
@@ -218,7 +250,7 @@ describe("verifyToken middleware", () => {
 describe("verifyAdmin middleware", () => {
   test("✅ Admin có thể truy cập admin route", async () => {
     const token = jwt.sign(
-      { id: 1, username: "adminuser", role: "admin" },
+      { id: 1, username: "adminuser", role: "admin", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -233,7 +265,7 @@ describe("verifyAdmin middleware", () => {
 
   test("❌ User thường bị từ chối truy cập admin route", async () => {
     const token = jwt.sign(
-      { id: 2, username: "regularuser", role: "user" },
+      { id: 2, username: "regularuser", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -314,7 +346,7 @@ describe("CORS configuration", () => {
 
   test("✅ Cho phép request không có Origin (server-to-server, Postman)", async () => {
     const token = jwt.sign(
-      { id: 1, username: "testuser", role: "user" },
+      { id: 1, username: "testuser", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -331,9 +363,9 @@ describe("CORS configuration", () => {
 // ─── JWT TOKEN STRUCTURE TESTS ───────────────────────────────────────────────
 
 describe("JWT token structure", () => {
-  test("✅ Token chứa đủ các field cần thiết (id, username, role)", () => {
+  test("✅ Token chứa đủ các field cần thiết (id, username, role, type)", () => {
     const token = jwt.sign(
-      { id: 5, username: "user5", role: "user" },
+      { id: 5, username: "user5", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -343,13 +375,14 @@ describe("JWT token structure", () => {
     expect(decoded).toHaveProperty("id", 5);
     expect(decoded).toHaveProperty("username", "user5");
     expect(decoded).toHaveProperty("role", "user");
+    expect(decoded).toHaveProperty("type", "access");
     expect(decoded).toHaveProperty("exp"); // expiry tồn tại
     expect(decoded).toHaveProperty("iat"); // issued-at tồn tại
   });
 
   test("✅ Token hết hạn sau 1 ngày", () => {
     const token = jwt.sign(
-      { id: 1, username: "test", role: "user" },
+      { id: 1, username: "test", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );

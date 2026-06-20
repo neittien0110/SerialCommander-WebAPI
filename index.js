@@ -11,7 +11,8 @@ assertRequiredSecretsLoaded();
 require("express-async-errors");
 
 const express = require("express");
-const router = require("routes/api");
+const scenarioRoutes = require("routes/scenarioRoutes");
+const adminRoutes = require("routes/adminRoutes");
 const { swaggerUIServe, swaggerUISetup } = require("kernels/api-docs");
 const authRoutes = require("routes/auth");
 const userRoutes = require("routes/user");
@@ -33,7 +34,8 @@ configureSession(app, getSessionSecret());
 app.use(passport.initialize());
 app.use(passport.session());
 configureRoutes(app, {
-  router,
+  scenarioRoutes,
+  adminRoutes,
   swaggerUIServe,
   swaggerUISetup,
   authRoutes,

@@ -10,7 +10,7 @@ require("rootpath")();
 const request = require("supertest");
 const express = require("express");
 const jwt = require("jsonwebtoken");
-const apiRouter = require("routes/api");
+const apiRouter = require("routes/scenarioRoutes");
 const scenarioService = require("modules/config/services/scenarioService");
 
 function buildApp() {
@@ -106,7 +106,7 @@ describe("Scenario API (integration)", () => {
 
   describe("JWT /scenarios/*", () => {
     const token = jwt.sign(
-      { id: 1, username: "u1", role: "user" },
+      { id: 1, username: "u1", role: "user", type: "access" },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );

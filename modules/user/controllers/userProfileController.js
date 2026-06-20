@@ -1,5 +1,33 @@
 const { sendError, sendSuccess } = require("../../../kernels/middlewares/errorHandler");
 const { updateUserProfile } = require("../services/userProfileService");
+const { User } = require("../../../models");
+
+exports.getProfile = async (req, res) => {
+  try {
+    // Lấy thông tin đầy đủ từ database
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["id", "username", "email", "role", "provider", "googleId", "isVerified"],
+    });
+
+    if (!user) {
+      return sendError(res, 404, "User not found", "USER_NOT_FOUND");
+    }
+
+    return sendSuccess(res, 200, "Đây là thông tin profile của bạn", {
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        provider: user.provider || "local",
+        isVerified: user.isVerified === true,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return sendError(res, 500, "Internal server error", "USER_PROFILE_FETCH_FAILED");
+  }
+};
 
 exports.updateProfile = async (req, res) => {
   const { username } = req.body || {};

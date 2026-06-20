@@ -83,10 +83,17 @@ async function verifyRefreshToken(rawToken) {
       if (!stored) return null; // đã bị revoke hoặc hết hạn
       if (stored !== hashToken(rawToken)) return null; // hash không khớp
     } catch (err) {
-      logWarn("[refresh-token] Redis GET thất bại — cho phép refresh (degraded mode)", {
+      if (process.env.NODE_ENV === "production") {
+        logWarn("[refresh-token] Redis GET thất bại — fail-closed in production", { message: err.message });
+        return null;
+      }
+      logWarn("[refresh-token] Redis GET thất bại — cho phép refresh (degraded mode in dev)", {
         message: err.message,
       });
     }
+  } else if (process.env.NODE_ENV === "production") {
+    logWarn("[refresh-token] Redis down — fail-closed in production");
+    return null;
   }
 
   return { userId: payload.id, tokenId: payload.tokenId };
