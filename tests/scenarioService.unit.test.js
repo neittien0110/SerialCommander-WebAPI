@@ -2,6 +2,8 @@ process.env.NODE_ENV = "test";
 
 require("rootpath")();
 
+const { Op } = require("sequelize");
+
 jest.mock("models", () => ({
   Scenario: {
     create: jest.fn(),
@@ -265,6 +267,58 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(out.offset).toBe(4);
     expect(JSON.parse(out.scenarios[0].Content)).toEqual([{ k: 1 }]);
     expect(JSON.parse(out.scenarios[1].Content)).toEqual([]);
+  });
+
+  test("getPublicScenarios: lọc IsShared=1 + tìm theo tên, không trả Content/UserId", async () => {
+    Scenario.findAndCountAll = jest.fn().mockResolvedValue({
+      rows: [
+        {
+          dataValues: {
+            Id: "p1",
+            Name: "Demo A",
+            Description: "d",
+            ShareCode: "abc123456789",
+            ModifiedAt: new Date("2026-01-01"),
+          },
+        },
+      ],
+      count: 1,
+    });
+
+    const out = await scenarioService.getPublicScenarios({ search: "Demo", limit: 10, offset: 0 });
+
+    expect(Scenario.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { IsShared: true, Name: { [Op.like]: "%Demo%" } },
+        attributes: ["Id", "Name", "Description", "ShareCode", "ModifiedAt"],
+        limit: 10,
+        offset: 0,
+      })
+    );
+    expect(out.total).toBe(1);
+    expect(out.scenarios[0]).not.toHaveProperty("Content");
+    expect(out.scenarios[0]).not.toHaveProperty("UserId");
+    expect(out.scenarios[0].Name).toBe("Demo A");
+  });
+
+  test("getPublicScenarios: không có search → where chỉ lọc IsShared", async () => {
+    Scenario.findAndCountAll = jest.fn().mockResolvedValue({ rows: [], count: 0 });
+
+    const out = await scenarioService.getPublicScenarios({});
+
+    expect(Scenario.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { IsShared: true } })
+    );
+    expect(out.total).toBe(0);
+  });
+
+  test("getPublicScenarios: limit tối đa 100, offset không âm", async () => {
+    Scenario.findAndCountAll = jest.fn().mockResolvedValue({ rows: [], count: 0 });
+
+    const out = await scenarioService.getPublicScenarios({ limit: 5000, offset: -5 });
+
+    expect(out.limit).toBe(100);
+    expect(out.offset).toBe(0);
   });
 
   test("shareScenario: share lần đầu sinh ShareCode 12 ký tự hex", async () => {

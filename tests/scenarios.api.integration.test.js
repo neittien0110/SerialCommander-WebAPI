@@ -104,6 +104,36 @@ describe("Scenario API (integration)", () => {
     });
   });
 
+  describe("GET /scenarios/public", () => {
+    test("200 trả danh sách + pagination", async () => {
+      jest.spyOn(scenarioService, "getPublicScenarios").mockResolvedValue({
+        scenarios: [
+          { Id: "p1", Name: "Demo", Description: "d", ShareCode: "abc123456789", ModifiedAt: "2026-01-01" },
+        ],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      });
+
+      const res = await request(app).get("/scenarios/public?search=Demo").expect(200);
+
+      expect(res.body.scenarios).toHaveLength(1);
+      expect(res.body.pagination).toMatchObject({ total: 1, limit: 50, offset: 0, hasMore: false });
+    });
+
+    test("không bị route auth ':scenarioId' nuốt mất — 200 không cần đăng nhập", async () => {
+      jest.spyOn(scenarioService, "getPublicScenarios").mockResolvedValue({
+        scenarios: [],
+        total: 0,
+        limit: 50,
+        offset: 0,
+      });
+
+      const res = await request(app).get("/scenarios/public").expect(200);
+      expect(res.body.scenarios).toEqual([]);
+    });
+  });
+
   describe("JWT /scenarios/*", () => {
     const token = jwt.sign(
       { id: 1, username: "u1", role: "user", type: "access" },

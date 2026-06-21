@@ -153,6 +153,29 @@ exports.getScenarioByShareCode = async (req, res) => {
   }
 };
 
+/**
+ * Public: danh sách scenario công khai (IsShared=1), tìm theo tên, phân trang.
+ * @alias /scenarios/public
+ */
+exports.getPublicScenarios = async (req, res) => {
+  try {
+    const { search, limit, offset } = req.query;
+    const { scenarios, total, limit: safeLimit, offset: safeOffset } =
+      await scenarioService.getPublicScenarios({ search, limit, offset });
+    return sendSuccess(res, 200, "Lấy danh sách kịch bản công khai thành công.", {
+      scenarios,
+      pagination: {
+        total,
+        limit: safeLimit,
+        offset: safeOffset,
+        hasMore: safeOffset + scenarios.length < total,
+      },
+    });
+  } catch (error) {
+    respondScenarioError(res, error, "SCENARIO_PUBLIC_LIST_FAILED");
+  }
+};
+
 /** Lấy kịch bản dựa trên id của kịch bản, dạng text
  * @see getScenarioById()  Trả về toàn bộ kịch bản và thông tin quản lý
  * @see exportScenarioById  Trả về nội dung kịch bản, không có thông tin quản lý, ở dạng file

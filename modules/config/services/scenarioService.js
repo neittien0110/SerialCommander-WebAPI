@@ -1,4 +1,5 @@
 const { Scenario, sequelize } = require("../../../models");
+const { Op } = require("sequelize");
 const { v4: uuidv4 } = require("uuid");
 const { logWarn, logError } = require("../../../kernels/logging/appLogger");
 const scenarioFirestore = require("./scenarioFirestoreService");
@@ -386,6 +387,32 @@ exports.getScenariosByUserId = async (userId, options = {}) => {
   return { scenarios, total: count, limit, offset };
 };
 
+/**
+ * Danh sách scenario công khai (IsShared=1), lọc theo tên (tuỳ chọn), phân trang.
+ * Không trả Content/UserId — tránh lộ dữ liệu riêng tư trên trang khám phá.
+ * @param {{ search?: string, limit?: number, offset?: number }} options
+ */
+exports.getPublicScenarios = async (options = {}) => {
+  const limit = Math.min(Math.max(Number(options.limit) || 50, 1), 100);
+  const offset = Math.max(Number(options.offset) || 0, 0);
+  const search = typeof options.search === "string" ? options.search.trim() : "";
+
+  const where = { IsShared: true };
+  if (search) {
+    where.Name = { [Op.like]: `%${search}%` };
+  }
+
+  const { rows, count } = await Scenario.findAndCountAll({
+    where,
+    attributes: ["Id", "Name", "Description", "ShareCode", "ModifiedAt"],
+    order: [["ModifiedAt", "DESC"]],
+    limit,
+    offset,
+  });
+
+  const scenarios = rows.map((row) => toPlainRecord(row));
+  return { scenarios, total: count, limit, offset };
+};
 
 /**
  * Creates a new share code.
