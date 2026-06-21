@@ -392,7 +392,7 @@ exports.getScenariosByUserId = async (userId, options = {}) => {
  * @returns {string} The generated share code.
  */
 function generateShareCode() {
-  return uuidv4().replace(/-/g, "").slice(0, 8);
+  return uuidv4().replace(/-/g, "").slice(0, 12);
 }
 
 /**
@@ -411,7 +411,7 @@ exports.shareScenario = async (id, userId) => {
     throw error;
   }
   scenario.IsShared = !scenario.IsShared;
-  if (scenario.IsShared && !scenario.ShareCode) {
+  if (scenario.IsShared) {
     let assigned = false;
     for (let i = 0; i < 5; i += 1) {
       try {
