@@ -34,12 +34,42 @@ const scenarioPublicListRateLimit = createSimpleRateLimit({
   windowMs: 60 * 1000,
   maxRequests: Number(process.env.SCENARIO_RL_PUBLIC_LIST_PER_MIN ?? 30),
 });
+const draftShareWriteRateLimit = createSimpleRateLimit({
+  windowMs: 60 * 1000,
+  maxRequests: Number(process.env.SCENARIO_RL_DRAFT_SHARE_WRITE_PER_MIN ?? 10),
+});
+const draftShareReadRateLimit = createSimpleRateLimit({
+  windowMs: 60 * 1000,
+  maxRequests: Number(process.env.SCENARIO_RL_DRAFT_SHARE_READ_PER_MIN ?? 60),
+});
 
 const textBodyParser = express.text({ type: "text/plain", limit: "2mb" });
+const draftShareBodyParser = express.text({ type: "text/plain", limit: "1mb" });
+const DRAFT_SHARE_CODE_PATTERN = /^[a-z0-9]{4,16}$/i;
 
-// Public: danh sách scenario công khai — PHẢI đứng trước router.group("/scenarios", verifyToken, ...)
-// để không bị route ":scenarioId" (yêu cầu auth) nuốt mất "/scenarios/public".
+function validateDraftShareCode(req, res, next) {
+  const { code } = req.params;
+  if (!code || !DRAFT_SHARE_CODE_PATTERN.test(code)) {
+    return sendError(res, 400, "Mã lưu tạm không hợp lệ.", "DRAFT_SHARE_CODE_INVALID");
+  }
+  next();
+}
+
+// Public: danh sách scenario công khai + draft-share — PHẢI đứng trước router.group("/scenarios", verifyToken, ...)
+// để không bị route ":scenarioId" (yêu cầu auth) nuốt mất các path con này.
 router.get("/scenarios/public", scenarioPublicListRateLimit, scenarioController.getPublicScenarios);
+router.post(
+  "/scenarios/draft-share",
+  draftShareWriteRateLimit,
+  draftShareBodyParser,
+  scenarioController.createDraftShare
+);
+router.get(
+  "/scenarios/draft-share/:code",
+  draftShareReadRateLimit,
+  validateDraftShareCode,
+  scenarioController.getDraftShare
+);
 
 router.group("/scenarios", verifyToken, (router) => {
   router.post("/import", scenarioMutateRateLimit, scenarioController.createScenario);
