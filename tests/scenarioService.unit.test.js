@@ -267,6 +267,42 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(JSON.parse(out.scenarios[1].Content)).toEqual([]);
   });
 
+  test("shareScenario: share lần đầu sinh ShareCode 12 ký tự hex", async () => {
+    const saveMock = jest.fn().mockResolvedValue(undefined);
+    const scenario = { IsShared: false, ShareCode: null, save: saveMock };
+    Scenario.findOne.mockResolvedValue(scenario);
+
+    const result = await scenarioService.shareScenario("id1", "user1");
+
+    expect(result.IsShared).toBe(true);
+    expect(result.ShareCode).toMatch(/^[a-f0-9]{12}$/);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("shareScenario: re-share sau khi unshare sinh ShareCode mới (rotate)", async () => {
+    const saveMock = jest.fn().mockResolvedValue(undefined);
+    const scenario = { IsShared: false, ShareCode: "oldcode12345", save: saveMock };
+    Scenario.findOne.mockResolvedValue(scenario);
+
+    const result = await scenarioService.shareScenario("id1", "user1");
+
+    expect(result.IsShared).toBe(true);
+    expect(result.ShareCode).not.toBe("oldcode12345");
+    expect(result.ShareCode).toMatch(/^[a-f0-9]{12}$/);
+  });
+
+  test("shareScenario: unshare giữ ShareCode cũ, không sinh mới", async () => {
+    const saveMock = jest.fn().mockResolvedValue(undefined);
+    const scenario = { IsShared: true, ShareCode: "code12345678", save: saveMock };
+    Scenario.findOne.mockResolvedValue(scenario);
+
+    const result = await scenarioService.shareScenario("id1", "user1");
+
+    expect(result.IsShared).toBe(false);
+    expect(result.ShareCode).toBe("code12345678");
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+
   test("attachScenarioContent: ưu tiên Firestore, fallback []", async () => {
     Scenario.findOne.mockResolvedValueOnce({
       dataValues: {
