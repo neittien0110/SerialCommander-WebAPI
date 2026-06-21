@@ -1,4 +1,5 @@
 const scenarioService = require("../services/scenarioService");
+const draftShareService = require("../services/scenarioDraftShareService");
 const { validateScenarioFile } = require("../services/scenarioFileValidator");
 const { logError, logWarn } = require("../../../kernels/logging/appLogger");
 const {
@@ -173,6 +174,43 @@ exports.getPublicScenarios = async (req, res) => {
     });
   } catch (error) {
     respondScenarioError(res, error, "SCENARIO_PUBLIC_LIST_FAILED");
+  }
+};
+
+/**
+ * Public: lưu tạm 1 draft Studio quá lớn để encode vào URL (fallback tầng 3).
+ * Body: text/plain — JSON string của draft (giới hạn 1MB qua draftShareBodyParser).
+ * @alias /scenarios/draft-share
+ */
+exports.createDraftShare = async (req, res) => {
+  const content = typeof req.body === "string" ? req.body : "";
+  if (!content.trim()) {
+    return sendError(res, 400, "Nội dung draft trống.", "DRAFT_SHARE_EMPTY");
+  }
+  try {
+    JSON.parse(content);
+  } catch {
+    return sendError(res, 400, "Nội dung draft không phải JSON hợp lệ.", "DRAFT_SHARE_INVALID_JSON");
+  }
+  try {
+    const { code } = await draftShareService.createDraftShare(content);
+    return sendSuccess(res, 201, "Đã lưu tạm draft.", { code });
+  } catch (error) {
+    respondScenarioError(res, error, "DRAFT_SHARE_CREATE_FAILED");
+  }
+};
+
+/**
+ * Public: đọc draft đã lưu tạm theo code (fallback tầng 3).
+ * @alias /scenarios/draft-share/:code
+ */
+exports.getDraftShare = async (req, res) => {
+  const { code } = req.params;
+  try {
+    const content = await draftShareService.getDraftShareContent(code);
+    return sendSuccess(res, 200, "Lấy draft lưu tạm thành công.", { content });
+  } catch (error) {
+    respondScenarioError(res, error, "DRAFT_SHARE_FETCH_FAILED");
   }
 };
 

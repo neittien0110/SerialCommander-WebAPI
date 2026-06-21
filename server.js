@@ -13,6 +13,7 @@ const { assertDatabaseEnvLoaded } = require("./configs/databaseEnv");
 const { startAuthCodeCleanupJob } = require("./kernels/jobs/authCodeCleanupJob");
 const { startScenarioOutboxWorker } = require("./kernels/syncJob");
 const { startMqttPasswdCleanupJob } = require("./kernels/jobs/mqttPasswdCleanupJob");
+const { startScenarioDraftShareCleanupJob } = require("./kernels/jobs/scenarioDraftShareCleanupJob");
 const { logEmailConfigAtStartup } = require("./utils/emailConfig");
 
 const port = process.env.PORT || 2999;
@@ -58,6 +59,7 @@ async function startServer() {
       startAuthCodeCleanupJob();
       startScenarioOutboxWorker();
       startMqttPasswdCleanupJob();
+      startScenarioDraftShareCleanupJob();
     });
   } catch (error) {
     const host = process.env.DATABASE_HOST || "localhost";

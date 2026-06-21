@@ -12,6 +12,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const apiRouter = require("routes/scenarioRoutes");
 const scenarioService = require("modules/config/services/scenarioService");
+const scenarioDraftShareService = require("modules/config/services/scenarioDraftShareService");
 
 function buildApp() {
   const app = express();
@@ -131,6 +132,67 @@ describe("Scenario API (integration)", () => {
 
       const res = await request(app).get("/scenarios/public").expect(200);
       expect(res.body.scenarios).toEqual([]);
+    });
+  });
+
+  describe("POST /scenarios/draft-share", () => {
+    test("201 trả code khi content hợp lệ", async () => {
+      jest.spyOn(scenarioDraftShareService, "createDraftShare").mockResolvedValue({
+        code: "abcdef123456",
+        expiresAt: new Date(),
+      });
+
+      const res = await request(app)
+        .post("/scenarios/draft-share")
+        .set("Content-Type", "text/plain")
+        .send(JSON.stringify({ Name: "Big draft" }))
+        .expect(201);
+
+      expect(res.body.code).toBe("abcdef123456");
+    });
+
+    test("400 khi body không phải JSON hợp lệ", async () => {
+      const res = await request(app)
+        .post("/scenarios/draft-share")
+        .set("Content-Type", "text/plain")
+        .send("{not-json")
+        .expect(400);
+
+      expectErrorContract(res, "DRAFT_SHARE_INVALID_JSON");
+    });
+
+    test("400 khi body trống", async () => {
+      const res = await request(app)
+        .post("/scenarios/draft-share")
+        .set("Content-Type", "text/plain")
+        .send("")
+        .expect(400);
+
+      expectErrorContract(res, "DRAFT_SHARE_EMPTY");
+    });
+  });
+
+  describe("GET /scenarios/draft-share/:code", () => {
+    test("200 trả content khi tồn tại", async () => {
+      jest.spyOn(scenarioDraftShareService, "getDraftShareContent").mockResolvedValue('{"Name":"x"}');
+
+      const res = await request(app).get("/scenarios/draft-share/abcdef123456").expect(200);
+
+      expect(res.body.content).toBe('{"Name":"x"}');
+    });
+
+    test("404 khi hết hạn/không tồn tại", async () => {
+      const err = new Error("Không tìm thấy bản lưu tạm hoặc đã hết hạn.");
+      err.statusCode = 404;
+      jest.spyOn(scenarioDraftShareService, "getDraftShareContent").mockRejectedValue(err);
+
+      const res = await request(app).get("/scenarios/draft-share/abcdef123456").expect(404);
+      expectErrorContract(res, "DRAFT_SHARE_FETCH_FAILED");
+    });
+
+    test("400 khi code sai format", async () => {
+      const res = await request(app).get("/scenarios/draft-share/a").expect(400);
+      expectErrorContract(res, "DRAFT_SHARE_CODE_INVALID");
     });
   });
 
