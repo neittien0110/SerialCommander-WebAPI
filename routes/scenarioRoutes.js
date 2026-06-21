@@ -30,8 +30,16 @@ const shareCodePublicRateLimit = createSimpleRateLimit({
   windowMs: 60 * 1000,
   maxRequests: Number(process.env.SCENARIO_RL_SHARE_PUBLIC_PER_MIN ?? 20),
 });
+const scenarioPublicListRateLimit = createSimpleRateLimit({
+  windowMs: 60 * 1000,
+  maxRequests: Number(process.env.SCENARIO_RL_PUBLIC_LIST_PER_MIN ?? 30),
+});
 
 const textBodyParser = express.text({ type: "text/plain", limit: "2mb" });
+
+// Public: danh sách scenario công khai — PHẢI đứng trước router.group("/scenarios", verifyToken, ...)
+// để không bị route ":scenarioId" (yêu cầu auth) nuốt mất "/scenarios/public".
+router.get("/scenarios/public", scenarioPublicListRateLimit, scenarioController.getPublicScenarios);
 
 router.group("/scenarios", verifyToken, (router) => {
   router.post("/import", scenarioMutateRateLimit, scenarioController.createScenario);
