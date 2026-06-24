@@ -373,3 +373,76 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(JSON.parse(row.Content)).toEqual([{ k: 1 }]);
   });
 });
+
+describe("normalizeScenarioPayload – Guide field", () => {
+  const { normalizeScenarioPayload } = require("modules/config/services/scenarioValidation");
+
+  it("trims and accepts a valid Guide string", () => {
+    const result = normalizeScenarioPayload({ ...validPayload, Guide: "  ## Step 1\nConnect  " });
+    expect(result.Guide).toBe("## Step 1\nConnect");
+  });
+
+  it("accepts undefined Guide as empty string", () => {
+    const result = normalizeScenarioPayload({ ...validPayload });
+    expect(result.Guide).toBe("");
+  });
+
+  it("accepts null Guide as empty string", () => {
+    const result = normalizeScenarioPayload({ ...validPayload, Guide: null });
+    expect(result.Guide).toBe("");
+  });
+
+  it("rejects Guide longer than 10000 chars", () => {
+    const longGuide = "a".repeat(10001);
+    expect(() => normalizeScenarioPayload({ ...validPayload, Guide: longGuide })).toThrow();
+  });
+});
+
+describe("Guide survives createScenario round-trip", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("passes Guide to Scenario.create", async () => {
+    const tx = { commit: jest.fn(), rollback: jest.fn() };
+    sequelize.transaction.mockResolvedValue(tx);
+    Scenario.create.mockResolvedValue({
+      Id: "id1",
+      dataValues: { Id: "id1", Name: "S1", Guide: "## Step 1" },
+    });
+    scenarioFirestore.getScenarioContentArray.mockResolvedValue(null);
+
+    await scenarioService.createScenario("u1", { ...validPayload, Guide: "## Step 1" });
+
+    const createCall = Scenario.create.mock.calls[0][0];
+    expect(createCall.Guide).toBe("## Step 1");
+  });
+
+  it("passes Guide to Scenario.update", async () => {
+    const tx = { commit: jest.fn(), rollback: jest.fn() };
+    sequelize.transaction.mockResolvedValue(tx);
+    Scenario.findOne.mockResolvedValue({ Id: "id1", dataValues: { Id: "id1" } });
+    Scenario.update.mockResolvedValue([1]);
+    scenarioFirestore.getScenarioContentArray.mockResolvedValue(null);
+
+    await scenarioService.updateScenario("id1", "u1", { ...validPayload, Guide: "## Updated" });
+
+    const updateCall = Scenario.update.mock.calls[0][0];
+    expect(updateCall.Guide).toBe("## Updated");
+  });
+
+  it("stores null when Guide is empty string", async () => {
+    const tx = { commit: jest.fn(), rollback: jest.fn() };
+    sequelize.transaction.mockResolvedValue(tx);
+    Scenario.create.mockResolvedValue({
+      Id: "id2",
+      dataValues: { Id: "id2", Name: "S2", Guide: null },
+    });
+    scenarioFirestore.getScenarioContentArray.mockResolvedValue(null);
+
+    await scenarioService.createScenario("u1", { ...validPayload, Guide: "" });
+
+    const createCall = Scenario.create.mock.calls[0][0];
+    expect(createCall.Guide).toBeNull();
+  });
+});
