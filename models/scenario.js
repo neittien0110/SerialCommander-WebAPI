@@ -24,7 +24,12 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(1024),
       allowNull: true,
       comment: 'Mô tả về ý nghĩa của kịch bản'
-    },    
+    },
+    Guide: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Hướng dẫn sử dụng (Markdown) — do chủ dự án viết'
+    },
     IsShared: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
