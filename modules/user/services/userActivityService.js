@@ -1,4 +1,5 @@
 const { UserActivity } = require("../../../models");
+const { logError } = require("../../../kernels/logging/appLogger");
 
 /**
  * Service để xử lý logic liên quan đến User Activity
@@ -28,7 +29,7 @@ class UserActivityService {
 
       return activity;
     } catch (error) {
-      console.error("Error creating user activity:", error);
+      logError("Error creating user activity:", { error: error.message });
       throw error;
     }
   }
@@ -108,7 +109,7 @@ class UserActivityService {
         }
       };
     } catch (error) {
-      console.error("Error fetching user activities:", error);
+      logError("Error fetching user activities:", { error: error.message });
       throw error;
     }
   }
@@ -171,7 +172,7 @@ class UserActivityService {
         lastActivityDate: lastActivity ? lastActivity.CreatedAt : null
       };
     } catch (error) {
-      console.error("Error fetching user activity stats:", error);
+      logError("Error fetching user activity stats:", { error: error.message });
       throw error;
     }
   }
@@ -196,7 +197,7 @@ class UserActivityService {
 
       return deleted;
     } catch (error) {
-      console.error("Error cleaning up old activities:", error);
+      logError("Error cleaning up old activities:", { error: error.message });
       throw error;
     }
   }

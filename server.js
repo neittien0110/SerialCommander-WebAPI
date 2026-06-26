@@ -7,13 +7,9 @@ const path = require("path");
 const { logError, logInfo } = require("./kernels/logging/appLogger");
 const app = require("./index");
 const { sequelize } = require("./models");
-const { isFirebaseReady } = require("./kernels/firebaseAdmin");
 const { checkSchemaVersion } = require("./kernels/dbSchemaCheck");
 const { assertDatabaseEnvLoaded } = require("./configs/databaseEnv");
-const { startAuthCodeCleanupJob } = require("./kernels/jobs/authCodeCleanupJob");
-const { startScenarioOutboxWorker } = require("./kernels/syncJob");
-const { startMqttPasswdCleanupJob } = require("./kernels/jobs/mqttPasswdCleanupJob");
-const { startScenarioDraftShareCleanupJob } = require("./kernels/jobs/scenarioDraftShareCleanupJob");
+const { startAllJobs } = require("./bootstrap/jobs");
 const { logEmailConfigAtStartup } = require("./utils/emailConfig");
 
 const port = process.env.PORT || 2999;
@@ -37,29 +33,18 @@ async function startServer() {
 
     await checkSchemaVersion(sequelize);
 
-    if (process.env.NODE_ENV !== "production") {
-      await sequelize.sync({ alter: false });
-    } else {
+    if (process.env.NODE_ENV === "production") {
       logInfo(
         "[db] Nhắc deploy: áp dụng migrations/*.sql thủ công trên server trước khi bật phiên bản mới.",
         {}
       );
     }
 
-    logInfo(
-      isFirebaseReady()
-        ? "[firebase] Đã kết nối Firestore + Storage (service account hợp lệ)."
-        : "[firebase] Chưa kết nối — kiểm tra FIREBASE_SERVICE_ACCOUNT_PATH và file JSON."
-    );
-
     logEmailConfigAtStartup();
 
     app.listen(port, host, () => {
-      console.log(`Server running at http://${host}:${port}`);
-      startAuthCodeCleanupJob();
-      startScenarioOutboxWorker();
-      startMqttPasswdCleanupJob();
-      startScenarioDraftShareCleanupJob();
+      logInfo(`Server running at http://${host}:${port}`);
+      startAllJobs();
     });
   } catch (error) {
     const host = process.env.DATABASE_HOST || "localhost";
@@ -75,7 +60,7 @@ async function startServer() {
       hint,
     });
     if (hint) {
-      console.error(hint);
+      logError(hint);
     }
     process.exit(1);
   }

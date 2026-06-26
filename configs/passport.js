@@ -4,6 +4,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { User } = require("../models");
 const { getGoogleOAuthConfig } = require("./googleOAuth");
 const { normalizeEmail } = require("../utils/emailValidation");
+const { logWarn } = require("../kernels/logging/appLogger");
 
 const GOOGLE_OAUTH_PASSWORD_PLACEHOLDER = bcrypt.hashSync(
   "__SERIALCOMMANDER_GOOGLE_OAUTH_NO_LOCAL_LOGIN__",
@@ -102,7 +103,7 @@ function isGoogleOAuthReady() {
 }
 
 if (!registerGoogleStrategy() && process.env.NODE_ENV !== "test") {
-  console.warn(
+  logWarn(
     "[passport] Google OAuth tắt — thiếu GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET (đặt trong .env.local khi NODE_ENV=development)"
   );
 }

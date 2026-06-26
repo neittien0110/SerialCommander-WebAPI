@@ -17,7 +17,6 @@ const { swaggerUIServe, swaggerUISetup } = require("kernels/api-docs");
 const authRoutes = require("routes/auth");
 const userRoutes = require("routes/user");
 const uploadRoutes = require('routes/uploadRoutes');
-const firebaseRoutes = require("routes/firebaseRoutes");
 const remoteRoutes = require("routes/remoteRoutes");
 const youtubeRoutes = require("routes/youtube");
 const passport = require("./configs/passport");
@@ -41,7 +40,6 @@ configureRoutes(app, {
   authRoutes,
   userRoutes,
   uploadRoutes,
-  firebaseRoutes,
   remoteRoutes,
   youtubeRoutes,
   sendSuccess,

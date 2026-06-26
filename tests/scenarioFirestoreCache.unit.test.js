@@ -64,15 +64,6 @@ jest.mock("../kernels/firebaseAdmin", () => ({
   isFirebaseReady: jest.fn().mockReturnValue(true),
 }));
 
-jest.mock("./scenarioFirestoreService.firebaseStorage", () => ({
-  saveScenarioJsonSnapshot: jest.fn().mockResolvedValue(),
-  deleteScenarioJsonSnapshot: jest.fn().mockResolvedValue(),
-}), { virtual: true });
-
-jest.mock("../modules/config/services/firebaseStorageService", () => ({
-  saveScenarioJsonSnapshot: jest.fn().mockResolvedValue(),
-  deleteScenarioJsonSnapshot: jest.fn().mockResolvedValue(),
-}));
 
 const CACHE_PREFIX = "scenario:content:cache:";
 const firestoreService = require("../modules/config/services/scenarioFirestoreService");

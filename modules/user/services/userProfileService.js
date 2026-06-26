@@ -1,6 +1,7 @@
 const { User } = require("../../../models");
 const UserActivityService = require("./userActivityService");
 const { validateUsername } = require("../../../utils/usernameValidation");
+const { logWarn } = require("../../../kernels/logging/appLogger");
 
 function createAppError(status, code, message) {
   const error = new Error(message);
@@ -46,7 +47,7 @@ async function updateUserProfile(userId, { username }) {
       { previousUsername: previous || null, newUsername: check.value }
     );
   } catch (err) {
-    console.warn("profile_updated activity log failed:", err.message);
+    logWarn("profile_updated activity log failed:", { error: err.message });
   }
 
   return { user, changed: true };

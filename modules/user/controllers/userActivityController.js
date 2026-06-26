@@ -1,5 +1,6 @@
 const UserActivityService = require("../services/userActivityService");
 const { sendError, sendSuccess } = require("../../../kernels/middlewares/errorHandler");
+const { logError } = require("../../../kernels/logging/appLogger");
 
 /**
  * Controller để xử lý các request liên quan đến User Activity
@@ -34,7 +35,7 @@ exports.getUserActivities = async (req, res) => {
 
     return sendSuccess(res, 200, "Lấy lịch sử hoạt động thành công", result);
   } catch (error) {
-    console.error("Error in getUserActivities:", error);
+    logError("Error in getUserActivities:", { error: error.message });
     return sendError(res, 500, "Lỗi khi lấy lịch sử hoạt động", "USER_ACTIVITY_FETCH_FAILED", {
       detail: error.message,
     });
@@ -58,7 +59,7 @@ exports.getUserActivityStats = async (req, res) => {
 
     return sendSuccess(res, 200, "Lấy thống kê hoạt động thành công", { stats });
   } catch (error) {
-    console.error("Error in getUserActivityStats:", error);
+    logError("Error in getUserActivityStats:", { error: error.message });
     return sendError(res, 500, "Lỗi khi lấy thống kê hoạt động", "USER_ACTIVITY_STATS_FAILED", {
       detail: error.message,
     });
@@ -91,7 +92,7 @@ exports.createActivity = async (req, res) => {
 
     return sendSuccess(res, 201, "Tạo activity log thành công", { activity });
   } catch (error) {
-    console.error("Error in createActivity:", error);
+    logError("Error in createActivity:", { error: error.message });
     return sendError(res, 500, "Lỗi khi tạo activity log", "USER_ACTIVITY_CREATE_FAILED", {
       detail: error.message,
     });

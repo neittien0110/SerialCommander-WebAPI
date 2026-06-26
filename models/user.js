@@ -21,11 +21,12 @@ module.exports = (sequelize, DataTypes) => {
 
   // Định nghĩa mối quan hệ giữa các models. Thiết lập quan hệ 1-n
   User.associate = (models) => {
-    // Một User có nhiều DeviceConfig (một người dùng có thể sở hữu nhiều cấu hình thiết bị).
-    // 'models.DeviceConfig' là model 'DeviceConfig' đã được định nghĩa ở nơi khác.
-    // 'foreignKey: "userId"' chỉ ra rằng cột 'userId' trong bảng 'DeviceConfig' sẽ là khóa ngoại liên kết với 'User'.
     User.hasMany(models.Scenario, {
       foreignKey: "UserId",
+    });
+    models.Scenario.belongsTo(User, {
+      foreignKey: "UserId",
+      as: "User",
     });
     // Một User có nhiều UserActivity (lịch sử hoạt động)
     if (models.UserActivity) {

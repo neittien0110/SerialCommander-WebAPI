@@ -105,7 +105,7 @@ describe("scenarioFileValidator", () => {
     });
     const r = validateScenarioFile(json);
     expect(r.valid).toBe(true);
-    expect(r.warnings.some((w) => /lệnh\/s/.test(w.message))).toBe(true);
+    expect(r.warnings.some((w) => /cmd\/s/.test(w.message))).toBe(true);
   });
 
   test("warns PollIntervalMs below minimum", () => {
@@ -125,7 +125,7 @@ describe("scenarioFileValidator", () => {
     });
     const r = validateScenarioFile(json);
     expect(r.valid).toBe(true);
-    expect(r.warnings.some((w) => /TxFormats/.test(w.message) && /trống/.test(w.message))).toBe(true);
+    expect(r.warnings.some((w) => /TxFormats/.test(w.message) && /empty/.test(w.message))).toBe(true);
   });
 
   test("warns PollIntervalMs set nhưng TxFormats thiếu — poll sẽ không gửi lệnh", () => {
@@ -135,7 +135,7 @@ describe("scenarioFileValidator", () => {
     });
     const r = validateScenarioFile(json);
     expect(r.valid).toBe(true);
-    expect(r.warnings.some((w) => /TxFormats/.test(w.message) && /trống/.test(w.message))).toBe(true);
+    expect(r.warnings.some((w) => /TxFormats/.test(w.message) && /empty/.test(w.message))).toBe(true);
   });
 
   test("rejects empty or whitespace input", () => {
@@ -146,7 +146,7 @@ describe("scenarioFileValidator", () => {
   test("rejects non-string input", () => {
     const r = validateScenarioFile(null);
     expect(r.valid).toBe(false);
-    expect(r.errors[0].message).toMatch(/phải là chuỗi/i);
+    expect(r.errors[0].message).toMatch(/must be a JSON string/i);
   });
 
   test("rejects invalid Content Type enum", () => {
@@ -217,5 +217,132 @@ describe("scenarioFileValidator", () => {
     const r = validateScenarioFile(json);
     expect(r.valid).toBe(true);
     expect(r.warnings.some((w) => /true/i.test(w.message))).toBe(true);
+  });
+
+  // ── PollIntervalMs not a number (lines 76-82) ─────────────────────────────────
+  test("warns khi PollIntervalMs không phải number", () => {
+    const json = JSON.stringify({
+      Name: "Bad poll",
+      Content: [{ Type: "button", Name: "A", PollIntervalMs: "fast" }],
+    });
+    const r = validateScenarioFile(json);
+    expect(r.warnings.some((w) => /must be a number/.test(w.message))).toBe(true);
+  });
+
+  // ── pathToJsonPointer empty path (line 165-166) ───────────────────────────────
+  test("getSyntaxErrorPosition trả null khi err.message không có position", () => {
+    const err = new SyntaxError("Unexpected end of JSON input");
+    const pos = getSyntaxErrorPosition('{"x"', err);
+    expect(pos).toBeNull();
+  });
+
+  // ── Root not object — string literal (lines 382-383) ────────────────────────
+  test("lỗi khi root là chuỗi thay vì object", () => {
+    const r = validateScenarioFile(JSON.stringify("just a string"));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /Root must be a JSON object/.test(e.message))).toBe(true);
+  });
+
+  // ── Content missing/null (lines 421-423) ─────────────────────────────────────
+  test("lỗi khi Content bị thiếu", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "Test" }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => e.path === "Content")).toBe(true);
+  });
+
+  // ── Content not array (line 201) ─────────────────────────────────────────────
+  test("lỗi khi Content không phải array", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "Test", Content: "bad" }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /"Content" must be an array/.test(e.message))).toBe(true);
+  });
+
+  // ── Content element not object (lines 212-219) ───────────────────────────────
+  test("lỗi khi Content element là null", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [null] }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /is not an object/.test(e.message))).toBe(true);
+  });
+
+  // ── Type missing (lines 224-226) ─────────────────────────────────────────────
+  test("lỗi khi Type bị thiếu", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Name: "A" }] }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /Type.*missing or invalid/.test(e.message))).toBe(true);
+  });
+
+  // ── Type not a string (lines 233-235) ────────────────────────────────────────
+  test("lỗi khi Type là số thay vì chuỗi", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Type: 42, Name: "A" }] }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /must be a non-empty string/.test(e.message))).toBe(true);
+  });
+
+  // ── Name missing (lines 269-271) ─────────────────────────────────────────────
+  test("lỗi khi Name của Content element bị thiếu", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Type: "text" }] }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /Field "Name".*missing/.test(e.message))).toBe(true);
+  });
+
+  // ── Name not string (lines 278-280) ──────────────────────────────────────────
+  test("lỗi khi Name của Content element là số", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Type: "text", Name: 99 }] }));
+    expect(r.valid).toBe(false);
+    expect(r.errors.some((e) => /Field "Name".*non-empty string/.test(e.message))).toBe(true);
+  });
+
+  // ── Labels not array (lines 290-292) ─────────────────────────────────────────
+  test("cảnh báo khi Labels không phải array", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Type: "text", Name: "A", Labels: "bad" }] }));
+    expect(r.warnings.some((w) => /Labels.*should be an array/.test(w.message))).toBe(true);
+  });
+
+  // ── TxFormats not array (lines 302-304) ──────────────────────────────────────
+  test("cảnh báo khi TxFormats không phải array", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Type: "text", Name: "A", TxFormats: "bad" }] }));
+    expect(r.warnings.some((w) => /TxFormats.*should be an array/.test(w.message))).toBe(true);
+  });
+
+  // ── Params not array (lines 314-316) ─────────────────────────────────────────
+  test("cảnh báo khi Params không phải array", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [{ Type: "text", Name: "A", Params: "bad" }] }));
+    expect(r.warnings.some((w) => /Params.*should be an array/.test(w.message))).toBe(true);
+  });
+
+  // ── Description not string (lines 409-411) ───────────────────────────────────
+  test("cảnh báo khi Description không phải string", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [], Description: 123 }));
+    expect(r.warnings.some((w) => /Description.*should be a string/.test(w.message))).toBe(true);
+  });
+
+  // ── Banners not array (lines 437-439) ────────────────────────────────────────
+  test("cảnh báo khi Banners không phải array", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [], Banners: "banner" }));
+    expect(r.warnings.some((w) => /Banners.*should be an array/.test(w.message))).toBe(true);
+  });
+
+  // ── Baudrate not number (lines 449-451) ──────────────────────────────────────
+  test("cảnh báo khi Baudrate không phải number", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [], Baudrate: "9600" }));
+    expect(r.warnings.some((w) => /Baudrate.*should be a number/.test(w.message))).toBe(true);
+  });
+
+  // ── Parity invalid (lines 461-463) ───────────────────────────────────────────
+  test("cảnh báo khi Parity không hợp lệ", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [], Parity: "weird" }));
+    expect(r.warnings.some((w) => /Parity.*should be one of/.test(w.message))).toBe(true);
+  });
+
+  // ── StopBits invalid (lines 473-475) ─────────────────────────────────────────
+  test("cảnh báo khi StopBits không hợp lệ", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [], StopBits: 3 }));
+    expect(r.warnings.some((w) => /StopBits.*should be 1/.test(w.message))).toBe(true);
+  });
+
+  // ── DataBits invalid (lines 484-486) ─────────────────────────────────────────
+  test("cảnh báo khi DataBits không phải 7 hay 8", () => {
+    const r = validateScenarioFile(JSON.stringify({ Name: "T", Content: [], DataBits: 9 }));
+    expect(r.warnings.some((w) => /DataBits.*should be 7 or 8/.test(w.message))).toBe(true);
   });
 });

@@ -4,6 +4,7 @@
 const { Scenario, User, sequelize } = require("../../../models");
 const { Op } = require("sequelize");
 const { logError } = require("../../../kernels/logging/appLogger");
+const objectUploadService = require("../../upload/services/objectUploadService");
 const scenarioFirestore = require("./scenarioFirestoreService");
 const scenarioSyncStatus = require("../../../kernels/scenarioSyncStatus");
 const { normalizeScenarioPayload } = require("./scenarioValidation");
@@ -32,6 +33,7 @@ async function createScenario(userId, scenarioData) {
         Name: normalized.Name,
         Description: normalized.Description,
         Guide: normalized.Guide || null,
+        FeatureImage: normalized.FeatureImage || null,
         UserId: userId,
         Baudrate: normalized.Baudrate,
         Parity: normalized.Parity,
@@ -106,6 +108,7 @@ async function updateScenario(scenarioId, userId, updateData) {
     Name: normalized.Name,
     Description: normalized.Description,
     Guide: normalized.Guide || null,
+    FeatureImage: normalized.FeatureImage || null,
     UserId: userId,
     Baudrate: normalized.Baudrate,
     Parity: normalized.Parity,
@@ -134,6 +137,10 @@ async function updateScenario(scenarioId, userId, updateData) {
     content: normalized.Content,
   });
 
+  if (existing.FeatureImage && existing.FeatureImage !== nextValues.FeatureImage) {
+    await objectUploadService.deleteImageByUrl(existing.FeatureImage);
+  }
+
   return { updatedRows: 1, syncStatus };
 }
 
@@ -144,6 +151,11 @@ async function updateScenario(scenarioId, userId, updateData) {
  * @returns {Promise<number>} A promise that resolves to the number of deleted rows.
  */
 async function deleteScenario(id, userId) {
+  const existing = await Scenario.findOne({
+    where: { Id: id, UserId: userId },
+    attributes: ["FeatureImage"],
+  });
+
   const tx = await sequelize.transaction();
   let deletedRows = 0;
   try {
@@ -163,6 +175,10 @@ async function deleteScenario(id, userId) {
   }
 
   const syncStatus = await enqueueAfterCommit("scenario_delete", id, null);
+
+  if (existing?.FeatureImage) {
+    await objectUploadService.deleteImageByUrl(existing.FeatureImage);
+  }
 
   return { deletedRows, syncStatus };
 }
@@ -197,7 +213,7 @@ async function getScenariosByUserId(userId, options = {}) {
 }
 
 /**
- * Danh sách scenario công khai (IsShared=1), lọc theo tên (tuỳ chọn), phân trang.
+ * Danh sách scenario công khai (IsShared=1), lọc theo tên hoặc mã chia sẻ (tuỳ chọn), phân trang.
  * Không trả Content/UserId — tránh lộ dữ liệu riêng tư trên trang khám phá.
  * @param {{ search?: string, limit?: number, offset?: number }} options
  */
@@ -216,12 +232,15 @@ async function getPublicScenarios(options = {}) {
 
   const where = { IsShared: true };
   if (search) {
-    where.Name = { [Op.like]: `%${search}%` };
+    where[Op.or] = [
+      { Name: { [Op.like]: `%${search}%` } },
+      { ShareCode: { [Op.like]: `%${search}%` } },
+    ];
   }
 
   const { rows, count } = await Scenario.findAndCountAll({
     where,
-    attributes: ["Id", "Name", "Description", "ShareCode", "ModifiedAt"],
+    attributes: ["Id", "Name", "Description", "FeatureImage", "ShareCode", "ModifiedAt"],
     include: [{ model: User, as: "User", attributes: ["username"], required: false }],
     order,
     limit,

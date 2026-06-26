@@ -28,10 +28,6 @@ function generateEnvelopeToken() {
   return crypto.randomBytes(PASSWORD_TOKEN_BYTES).toString("base64");
 }
 
-function generateE2EKey() {
-  return crypto.randomBytes(32).toString("base64");
-}
-
 function generateJoinChallenge() {
   return crypto.randomBytes(JOIN_CHALLENGE_BYTES).toString("hex");
 }
@@ -56,7 +52,6 @@ async function createRemoteSession(userId) {
   let sessionId = "";
   let mqttPasswordToken = "";
   let envelopeToken = "";
-  const e2eKey = generateE2EKey();
   const joinChallenge = generateJoinChallenge();
   const ttlSeconds = remoteSessionStore.ttlSeconds();
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
@@ -76,7 +71,6 @@ async function createRemoteSession(userId) {
     userId,
     mqttPasswordToken,
     envelopeToken,
-    e2eKey,
     joinChallenge,
     createdAt: new Date().toISOString(),
     expiresAt,
@@ -100,7 +94,6 @@ async function createRemoteSession(userId) {
     sessionId,
     mqttPasswordToken,
     envelopeToken,
-    e2eKey,
     joinChallenge,
     expiresAt,
     ttlSeconds,
@@ -146,7 +139,6 @@ function buildSessionCredentials(sessionId, record) {
     sessionId,
     mqttPasswordToken: record.mqttPasswordToken,
     envelopeToken: record.envelopeToken || record.mqttPasswordToken,
-    e2eKey: record.e2eKey,
     joinChallenge: record.joinChallenge,
     // Dùng expiresAt đã lưu khi tạo session thay vì tính lại (now+TTL sẽ sai với session cũ).
     expiresAt: record.expiresAt || new Date(Date.now() + ttlSeconds * 1000).toISOString(),

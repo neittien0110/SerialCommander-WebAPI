@@ -21,7 +21,6 @@ function configureRoutes(app, deps) {
     authRoutes,
     userRoutes,
     uploadRoutes,
-    firebaseRoutes,
     remoteRoutes,
     youtubeRoutes,
     sendSuccess,
@@ -122,7 +121,6 @@ function configureRoutes(app, deps) {
         user: "/api/user",
         config: "/scenarios",
         upload: "/api/upload",
-        firebase: "/api/firebase",
         remote: "/api/remote",
         youtube: "/api/youtube",
       },
@@ -144,7 +142,6 @@ function configureRoutes(app, deps) {
   app.use("/api/auth", authRoutes);
   app.use("/api/user", userRoutes);
   app.use("/api/upload", uploadRoutes);
-  app.use("/api/firebase", firebaseRoutes);
   app.use("/api/remote", remoteRoutes);
   app.use("/api/youtube", youtubeRoutes);
 

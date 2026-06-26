@@ -71,6 +71,14 @@ function normalizeScenarioPayload(scenarioData) {
     errors.push('Trường "Guide" không được vượt quá 10000 ký tự.');
   }
 
+  const featureImageRaw = scenarioData?.FeatureImage;
+  const featureImage = typeof featureImageRaw === "string" ? featureImageRaw.trim() : "";
+  if (featureImage.length > 1024) {
+    errors.push('Trường "FeatureImage" không được vượt quá 1024 ký tự.');
+  } else if (featureImage && !/^https?:\/\//i.test(featureImage)) {
+    errors.push('Trường "FeatureImage" phải là URL bắt đầu bằng http:// hoặc https://.');
+  }
+
   if (errors.length > 0) {
     const error = new Error(errors.join(" "));
     error.statusCode = 400;
@@ -81,6 +89,7 @@ function normalizeScenarioPayload(scenarioData) {
     Name: name,
     Description: sanitizeString(scenarioData?.Description, ""),
     Guide: guide,
+    FeatureImage: featureImage,
     Baudrate: baudrate,
     Parity: parity,
     StopBits: stopBits,

@@ -1,6 +1,7 @@
 const { sendError, sendSuccess } = require("../../../kernels/middlewares/errorHandler");
 const { updateUserProfile } = require("../services/userProfileService");
 const { User } = require("../../../models");
+const { logError } = require("../../../kernels/logging/appLogger");
 
 exports.getProfile = async (req, res) => {
   try {
@@ -24,7 +25,7 @@ exports.getProfile = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching user profile:", error);
+    logError("Error fetching user profile:", { error: error.message });
     return sendError(res, 500, "Internal server error", "USER_PROFILE_FETCH_FAILED");
   }
 };
@@ -47,7 +48,7 @@ exports.updateProfile = async (req, res) => {
     const status = Number(error.status) || 500;
     const code = error.code || "USER_PROFILE_UPDATE_FAILED";
     if (status >= 500) {
-      console.error("updateProfile error:", error);
+      logError("updateProfile error:", { error: error.message });
     }
     return sendError(res, status, error.message || "Không thể cập nhật hồ sơ", code);
   }
