@@ -56,4 +56,7 @@ module.exports = {
     },
   },
   testTimeout: 15000,
+  coverageProvider: "v8",
+  coverageReporters: ["text", "html", "lcov"],
+  coverageDirectory: "coverage",
 };
