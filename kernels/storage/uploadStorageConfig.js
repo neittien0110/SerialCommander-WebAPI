@@ -3,11 +3,23 @@ const path = require("path");
 const DRIVERS = {
   LOCAL: "local",
   S3: "s3",
+  CLOUDINARY: "cloudinary",
 };
 
 function getUploadStorageDriver() {
   const raw = String(process.env.UPLOAD_STORAGE_DRIVER || DRIVERS.LOCAL).toLowerCase();
-  return raw === DRIVERS.S3 ? DRIVERS.S3 : DRIVERS.LOCAL;
+  if (raw === DRIVERS.S3) return DRIVERS.S3;
+  if (raw === DRIVERS.CLOUDINARY) return DRIVERS.CLOUDINARY;
+  return DRIVERS.LOCAL;
+}
+
+function getCloudinaryConfig() {
+  return {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
+    apiKey: process.env.CLOUDINARY_API_KEY || "",
+    apiSecret: process.env.CLOUDINARY_API_SECRET || "",
+    folder: process.env.CLOUDINARY_UPLOAD_FOLDER || "serial-commander",
+  };
 }
 
 function getLocalUploadDir() {
@@ -41,4 +53,5 @@ module.exports = {
   getLocalUploadDir,
   getPublicApiBaseUrl,
   getS3Config,
+  getCloudinaryConfig,
 };

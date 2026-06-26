@@ -1,7 +1,6 @@
 const { getFirestore, getAdmin, isFirebaseReady } = require("../../../kernels/firebaseAdmin");
 const { logWarn } = require("../../../kernels/logging/appLogger");
 const { getOutboxClient } = require("../../../kernels/redis/redisClients");
-const firebaseStorageService = require("./firebaseStorageService");
 
 // Cache Firestore content trong Redis để tránh round-trip Firestore trên mỗi GET.
 // TTL 120s: dữ liệu có thể trễ tối đa 2 phút sau khi outbox worker sync xong.
@@ -107,15 +106,6 @@ exports.batchSaveScenarioContent = async (items) => {
 
   // Invalidate cache sau khi Firestore đã có dữ liệu mới
   await cacheInvalidateMany(items.map((i) => i.scenarioId));
-
-  await Promise.allSettled(
-    items.map((item) =>
-      firebaseStorageService.saveScenarioJsonSnapshot(
-        item.scenarioId,
-        Array.isArray(item.content) ? item.content : []
-      )
-    )
-  );
 };
 
 /**
@@ -177,10 +167,6 @@ exports.batchDeleteScenarioContent = async (scenarioIds) => {
 
   // Invalidate cache ngay sau khi xóa
   await cacheInvalidateMany(scenarioIds);
-
-  await Promise.allSettled(
-    scenarioIds.map((id) => firebaseStorageService.deleteScenarioJsonSnapshot(id))
-  );
 };
 
 const FIRESTORE_GETALL_CHUNK = 10;
