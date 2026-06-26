@@ -19,11 +19,11 @@ const options = {
         paths: {
             "/": {
                 get: {
-                    summary: "Thông tin tổng quan API",
+                    summary: "API overview and status",
                     tags: ["System"],
                     responses: {
                         200: {
-                            description: "Thông tin trạng thái API",
+                            description: "API status information",
                             content: {
                                 "application/json": {
                                     schema: { $ref: "#/components/schemas/RootSuccessResponse" },
@@ -50,7 +50,7 @@ const options = {
                         message: { type: "string" },
                         trace_id: {
                             type: "string",
-                            description: "Mã bắc cầu request (trùng header X-Request-Id) khi có requestTraceMiddleware.",
+                            description: "Request trace ID (matches X-Request-Id header) when requestTraceMiddleware is active.",
                         },
                         error: {
                             type: "object",
@@ -58,7 +58,7 @@ const options = {
                             properties: {
                                 code: {
                                     type: "string",
-                                    description: "Ví dụ RATE_LIMIT_EXCEEDED, NO_TOKEN, VALIDATION_FAILED.",
+                                    description: "Example: RATE_LIMIT_EXCEEDED, NO_TOKEN, VALIDATION_FAILED.",
                                 },
                                 message: { type: "string" },
                                 details: {},
@@ -82,7 +82,7 @@ const options = {
                     type: "object",
                     required: ["message"],
                     description:
-                        "Kịch bản: sendSuccess merge DTO — Name, Content, Banners, ... cùng cấp với message (client cũ vẫn đọc field kịch bản ở root).",
+                        "Scenario: sendSuccess merge DTO — Name, Content, Banners, ... at root level alongside message (legacy clients read scenario fields at root).",
                     properties: {
                         message: { type: "string" },
                         trace_id: { type: "string" },
@@ -93,7 +93,7 @@ const options = {
                     type: "object",
                     required: ["message", "token"],
                     properties: {
-                        message: { type: "string", example: "Đăng nhập thành công" },
+                        message: { type: "string", example: "Login successful" },
                         token: { type: "string" },
                     },
                 },
@@ -168,7 +168,7 @@ const options = {
                         message: { type: "string" },
                         trace_id: {
                             type: "string",
-                            description: "Mã bắc cầu request (trùng header X-Request-Id).",
+                            description: "Request trace ID (matches X-Request-Id header).",
                         },
                         version: { type: "string" },
                         endpoints: { type: "object" },

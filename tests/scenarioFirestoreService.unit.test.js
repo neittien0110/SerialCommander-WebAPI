@@ -8,13 +8,7 @@ jest.mock("kernels/firebaseAdmin", () => ({
   isFirebaseReady: jest.fn(),
 }));
 
-jest.mock("modules/config/services/firebaseStorageService", () => ({
-  saveScenarioJsonSnapshot: jest.fn().mockResolvedValue(undefined),
-  deleteScenarioJsonSnapshot: jest.fn().mockResolvedValue(undefined),
-}));
-
 const firebaseAdmin = require("kernels/firebaseAdmin");
-const firebaseStorageService = require("modules/config/services/firebaseStorageService");
 const scenarioFirestore = require("modules/config/services/scenarioFirestoreService");
 
 function makeDocChain({ exists = true, data = {} } = {}) {
@@ -49,11 +43,9 @@ describe("scenarioFirestoreService", () => {
     await expect(
       scenarioFirestore.saveScenarioContent("sid-1", [{ Name: "a", Type: "t" }])
     ).rejects.toMatchObject({ statusCode: 503 });
-
-    expect(firebaseStorageService.saveScenarioJsonSnapshot).not.toHaveBeenCalled();
   });
 
-  test("saveScenarioContent ghi Firestore + snapshot Storage", async () => {
+  test("saveScenarioContent ghi Firestore thành công", async () => {
     firebaseAdmin.isFirebaseReady.mockReturnValue(true);
     const { db, batch } = makeDocChain();
     firebaseAdmin.getFirestore.mockReturnValue(db);
@@ -64,9 +56,6 @@ describe("scenarioFirestoreService", () => {
     await scenarioFirestore.saveScenarioContent("sid-2", [{ x: 1 }]);
 
     expect(batch.commit).toHaveBeenCalled();
-    expect(firebaseStorageService.saveScenarioJsonSnapshot).toHaveBeenCalledWith("sid-2", [
-      { x: 1 },
-    ]);
   });
 
   test("saveScenarioContent chuẩn hóa content không phải mảng thành []", async () => {
@@ -83,7 +72,6 @@ describe("scenarioFirestoreService", () => {
       expect.anything(),
       expect.objectContaining({ content: [] })
     );
-    expect(firebaseStorageService.saveScenarioJsonSnapshot).toHaveBeenCalledWith("sid-3", []);
   });
 
   test("getScenarioContentArray trả null khi không có db", async () => {
@@ -129,13 +117,11 @@ describe("scenarioFirestoreService", () => {
   test("deleteScenarioContent no-op khi không có db", async () => {
     firebaseAdmin.getFirestore.mockReturnValue(null);
 
-    await scenarioFirestore.deleteScenarioContent("sid");
-
-    expect(firebaseStorageService.deleteScenarioJsonSnapshot).not.toHaveBeenCalled();
+    await expect(scenarioFirestore.deleteScenarioContent("sid")).resolves.toBeUndefined();
   });
 
   test("batchGetScenarioContentArrays gom getAll theo chunk", async () => {
-    const { db, docRef } = makeDocChain();
+    const { db } = makeDocChain();
     firebaseAdmin.getFirestore.mockReturnValue(db);
     db.getAll.mockResolvedValueOnce([
       { id: "a", exists: true, data: () => ({ content: [1] }) },
@@ -151,7 +137,7 @@ describe("scenarioFirestoreService", () => {
     expect(map.get("b")).toBeNull();
   });
 
-  test("deleteScenarioContent xóa doc + snapshot", async () => {
+  test("deleteScenarioContent xóa doc trong Firestore", async () => {
     const { db, batch } = makeDocChain();
     firebaseAdmin.getFirestore.mockReturnValue(db);
 
@@ -159,6 +145,5 @@ describe("scenarioFirestoreService", () => {
 
     expect(batch.delete).toHaveBeenCalled();
     expect(batch.commit).toHaveBeenCalled();
-    expect(firebaseStorageService.deleteScenarioJsonSnapshot).toHaveBeenCalledWith("sid-9");
   });
 });

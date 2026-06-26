@@ -22,7 +22,7 @@ const authResetRateLimit = createSimpleRateLimit({ windowMs: 60 * 1000, maxReque
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Đăng nhập người dùng
+ *     summary: Log in a user
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -41,13 +41,13 @@ const authResetRateLimit = createSimpleRateLimit({ windowMs: 60 * 1000, maxReque
  *                 type: string
  *     responses:
  *       200:
- *         description: Đăng nhập thành công
+ *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/LoginSuccessResponse'
  *       401:
- *         description: Sai email hoặc mật khẩu
+ *         description: Incorrect email or password
  *         content:
  *           application/json:
  *             schema:
@@ -59,7 +59,7 @@ router.post("/login", authLoginRateLimit, validateAuth(loginValidators), authCon
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Đăng ký tài khoản mới
+ *     summary: Register a new account
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -79,13 +79,13 @@ router.post("/login", authLoginRateLimit, validateAuth(loginValidators), authCon
  *                 type: string
  *     responses:
  *       201:
- *         description: Đăng ký thành công
+ *         description: Registration successful
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/RegisterSuccessResponse'
  *       400:
- *         description: Email hoặc username đã tồn tại
+ *         description: Email or username already exists
  *         content:
  *           application/json:
  *             schema:
@@ -97,17 +97,17 @@ router.post("/register", authRegisterRateLimit, validateAuth(registerValidators)
  * @swagger
  * /api/auth/verify-email:
  *   post:
- *     summary: Xác thực email bằng mã OTP
+ *     summary: Verify email with OTP code
  *     tags: [Authentication]
  *     responses:
  *       200:
- *         description: Xác thực thành công hoặc đã xác thực trước đó
+ *         description: Verification successful or already verified
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MessageSuccessResponse'
  *       400:
- *         description: Mã không hợp lệ, hết hạn, hoặc input sai
+ *         description: Invalid code, expired, or bad input
  *         content:
  *           application/json:
  *             schema:
@@ -119,17 +119,17 @@ router.post("/verify-email", authOtpRateLimit, validateAuth(verifyEmailValidator
  * @swagger
  * /api/auth/resend-verification-code:
  *   post:
- *     summary: Gửi lại mã xác thực email
+ *     summary: Resend email verification code
  *     tags: [Authentication]
  *     responses:
  *       200:
- *         description: Gửi mã thành công
+ *         description: Code sent successfully
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MessageSuccessResponse'
  *       400:
- *         description: Input không hợp lệ
+ *         description: Invalid input
  *         content:
  *           application/json:
  *             schema:
@@ -146,7 +146,7 @@ router.post(
  * @swagger
  * /api/auth/google/status:
  *   get:
- *     summary: Trạng thái cấu hình Google OAuth
+ *     summary: Google OAuth configuration status
  *     tags: [Authentication]
  */
 router.get("/google/status", authController.googleOAuthStatus);
@@ -155,11 +155,11 @@ router.get("/google/status", authController.googleOAuthStatus);
  * @swagger
  * /api/auth/google:
  *   get:
- *     summary: Đăng nhập bằng Google OAuth
+ *     summary: Sign in with Google OAuth
  *     tags: [Authentication]
  *     responses:
  *       302:
- *         description: Redirect đến Google OAuth
+ *         description: Redirect to Google OAuth
  */
 router.get("/google", authController.googleAuth);
 
@@ -171,7 +171,7 @@ router.get("/google", authController.googleAuth);
  *     tags: [Authentication]
  *     responses:
  *       302:
- *         description: Redirect về frontend với token
+ *         description: Redirect to frontend with token
  */
 router.get("/google/callback", authController.googleCallback);
 
@@ -179,7 +179,7 @@ router.get("/google/callback", authController.googleCallback);
  * @swagger
  * /api/auth/forgot-password:
  *   post:
- *     summary: Yêu cầu mã đặt lại mật khẩu
+ *     summary: Request a password reset code
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -194,13 +194,13 @@ router.get("/google/callback", authController.googleCallback);
  *                 type: string
  *     responses:
  *       200:
- *         description: Email đã được gửi (nếu email tồn tại)
+ *         description: Email sent (if account exists)
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MessageSuccessResponse'
  *       400:
- *         description: Input không hợp lệ hoặc tài khoản Google
+ *         description: Invalid input or Google-only account
  *         content:
  *           application/json:
  *             schema:
@@ -217,7 +217,7 @@ router.post(
  * @swagger
  * /api/auth/verify-reset-code:
  *   post:
- *     summary: Xác thực mã đặt lại mật khẩu
+ *     summary: Verify password reset code
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -235,13 +235,13 @@ router.post(
  *                 type: string
  *     responses:
  *       200:
- *         description: Mã hợp lệ
+ *         description: Code is valid
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/VerifyResetCodeSuccessResponse'
  *       400:
- *         description: Mã không hợp lệ hoặc đã hết hạn
+ *         description: Invalid or expired code
  *         content:
  *           application/json:
  *             schema:
@@ -258,7 +258,7 @@ router.post(
  * @swagger
  * /api/auth/reset-password:
  *   post:
- *     summary: Đặt lại mật khẩu với mã xác thực
+ *     summary: Reset password with verification code
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -280,13 +280,13 @@ router.post(
  *                 minLength: 6
  *     responses:
  *       200:
- *         description: Đặt lại mật khẩu thành công
+ *         description: Password reset successful
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MessageSuccessResponse'
  *       400:
- *         description: Mã không hợp lệ hoặc mật khẩu không đủ dài
+ *         description: Invalid code or password too short
  *         content:
  *           application/json:
  *             schema:
@@ -303,17 +303,17 @@ router.post(
  * @swagger
  * /api/auth/refresh:
  *   post:
- *     summary: Làm mới access token dùng refresh token (HttpOnly cookie sc_refresh_token)
+ *     summary: Refresh access token using HttpOnly cookie sc_refresh_token
  *     tags: [Authentication]
  *     responses:
  *       200:
- *         description: Access token mới đã được gắn vào cookie sc_auth_token
+ *         description: New access token set in cookie sc_auth_token
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/MessageSuccessResponse'
  *       401:
- *         description: Refresh token thiếu, không hợp lệ, hoặc đã hết hạn
+ *         description: Refresh token missing, invalid, or expired
  *         content:
  *           application/json:
  *             schema:
@@ -325,11 +325,11 @@ router.post("/refresh", authController.refresh);
  * @swagger
  * /api/auth/logout:
  *   post:
- *     summary: Đăng xuất — xóa HttpOnly cookie sc_auth_token và sc_refresh_token
+ *     summary: Log out — clears HttpOnly cookies sc_auth_token and sc_refresh_token
  *     tags: [Authentication]
  *     responses:
  *       200:
- *         description: Đăng xuất thành công
+ *         description: Logout successful
  */
 router.post("/logout", authController.logout);
 

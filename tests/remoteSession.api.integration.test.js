@@ -11,6 +11,7 @@ jest.mock("configs/passport", () => ({
   authenticate: () => (_req, _res, next) => next(),
 }));
 
+const http = require("http");
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const app = require("index");
@@ -22,17 +23,33 @@ function authHeader(userId = 42) {
 }
 
 describe("Remote session API integration (real service layer)", () => {
+  let server;
+  const openConnections = new Set();
   const prevMqttPasswdFile = process.env.MQTT_PASSWD_FILE;
-  beforeAll(() => {
+
+  beforeAll((done) => {
     delete process.env.MQTT_PASSWD_FILE;
+    server = http.createServer(app);
+    server.on("connection", (conn) => {
+      openConnections.add(conn);
+      conn.on("close", () => openConnections.delete(conn));
+    });
+    server.listen(0, done);
   });
-  afterAll(() => {
+
+  afterAll(async () => {
     if (prevMqttPasswdFile !== undefined) process.env.MQTT_PASSWD_FILE = prevMqttPasswdFile;
     else delete process.env.MQTT_PASSWD_FILE;
+    openConnections.forEach((conn) => conn.destroy());
+    openConnections.clear();
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+    // Cho phép event loop drain các micro-tasks còn lại từ destroy()
+    await new Promise((resolve) => setImmediate(resolve));
   });
 
   test("POST /api/remote/session → host nhận credentials", async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post("/api/remote/session")
       .set(authHeader(99))
       .expect(201);
@@ -45,7 +62,7 @@ describe("Remote session API integration (real service layer)", () => {
 
   test("POST /api/remote/session/verify — station join với joinChallenge", async () => {
     const created = await remoteSessionService.createRemoteSession(10);
-    const res = await request(app)
+    const res = await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(55))
       .send({ sessionId: created.sessionId, joinChallenge: created.joinChallenge })
@@ -58,7 +75,7 @@ describe("Remote session API integration (real service layer)", () => {
 
   test("POST /api/remote/session/verify — host refresh không cần joinChallenge", async () => {
     const created = await remoteSessionService.createRemoteSession(77);
-    const res = await request(app)
+    const res = await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(77))
       .send({ sessionId: created.sessionId })
@@ -70,7 +87,7 @@ describe("Remote session API integration (real service layer)", () => {
 
   test("POST /api/remote/session/verify — token sai → 401", async () => {
     const created = await remoteSessionService.createRemoteSession(3);
-    await request(app)
+    await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(3))
       .send({ sessionId: created.sessionId, mqttPasswordToken: "wrong-token-value" })
@@ -81,7 +98,7 @@ describe("Remote session API integration (real service layer)", () => {
     const created = await remoteSessionService.createRemoteSession(30);
     const oldChallenge = created.joinChallenge;
 
-    const joinRes = await request(app)
+    const joinRes = await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(60))
       .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
@@ -90,7 +107,7 @@ describe("Remote session API integration (real service layer)", () => {
     const stationId = joinRes.body.stationId;
     expect(stationId).toMatch(/^[a-f0-9]{8}$/);
 
-    const kickRes = await request(app)
+    const kickRes = await request(server)
       .post("/api/remote/session/kick-station")
       .set(authHeader(30))
       .send({ sessionId: created.sessionId, stationId })
@@ -100,13 +117,13 @@ describe("Remote session API integration (real service layer)", () => {
     expect(newChallenge).toMatch(/^[a-f0-9]{32}$/);
     expect(newChallenge).not.toBe(oldChallenge);
 
-    await request(app)
+    await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(60))
       .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
       .expect(403);
 
-    const rejoin = await request(app)
+    const rejoin = await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(60))
       .send({ sessionId: created.sessionId, joinChallenge: newChallenge })
@@ -120,19 +137,19 @@ describe("Remote session API integration (real service layer)", () => {
     const created = await remoteSessionService.createRemoteSession(31);
     const oldChallenge = created.joinChallenge;
 
-    const stationB = await request(app)
+    const stationB = await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(61))
       .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
       .expect(200);
 
-    const stationA = await request(app)
+    const stationA = await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(62))
       .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
       .expect(200);
 
-    const kickRes = await request(app)
+    const kickRes = await request(server)
       .post("/api/remote/session/kick-station")
       .set(authHeader(31))
       .send({ sessionId: created.sessionId, stationId: stationA.body.stationId })
@@ -140,7 +157,7 @@ describe("Remote session API integration (real service layer)", () => {
 
     const newChallenge = kickRes.body.joinChallenge;
 
-    await request(app)
+    await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(62))
       .send({ sessionId: created.sessionId, joinChallenge: oldChallenge })
@@ -148,7 +165,7 @@ describe("Remote session API integration (real service layer)", () => {
 
     expect(stationB.body.stationId).toMatch(/^[a-f0-9]{8}$/);
 
-    await request(app)
+    await request(server)
       .post("/api/remote/session/verify")
       .set(authHeader(62))
       .send({ sessionId: created.sessionId, joinChallenge: newChallenge })

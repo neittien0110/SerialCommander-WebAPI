@@ -3,7 +3,6 @@ const helmet = require("helmet");
 const cors = require("cors");
 const path = require("path");
 const { requestTraceMiddleware } = require("../middlewares/requestTraceMiddleware");
-const { verifyToken } = require("../middlewares/authMiddleware");
 const { csrfProtection } = require("../middlewares/csrfMiddleware");
 
 function isDevPrivateNetworkOrigin(origin) {
@@ -99,7 +98,10 @@ function configureSecurity(app) {
   // cross-origin (COOKIE_SAME_SITE=none) và endpoint upload multipart.
   app.use(csrfProtection);
 
-  app.use("/uploads", verifyToken, express.static(path.join(__dirname, "../../uploads")));
+  // Công khai: ảnh đại diện kịch bản (FeatureImage) phải xem được bởi khách chưa đăng nhập
+  // ở trang Khám phá / share-code. Key chứa timestamp + random hex — không đoán được,
+  // và driver S3 production cũng phục vụ qua URL public tương đương (không yêu cầu auth).
+  app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 }
 
 module.exports = { configureSecurity, isDevPrivateNetworkOrigin, isAllowedOrigin };

@@ -36,9 +36,14 @@ jest.mock("modules/config/services/scenarioSyncEnqueue", () => ({
   enqueueScenarioFirestoreSync: jest.fn(),
 }));
 
+jest.mock("modules/upload/services/objectUploadService", () => ({
+  deleteImageByUrl: jest.fn(),
+}));
+
 const { Scenario, sequelize } = require("models");
 const scenarioFirestore = require("modules/config/services/scenarioFirestoreService");
 const scenarioSyncEnqueue = require("modules/config/services/scenarioSyncEnqueue");
+const objectUploadService = require("modules/upload/services/objectUploadService");
 const scenarioService = require("modules/config/services/scenarioService");
 
 const validPayload = {
@@ -69,6 +74,7 @@ describe("scenarioService (outbox Redis queue)", () => {
     sequelize.transaction.mockReset();
     scenarioFirestore.getScenarioContentArray.mockReset();
     scenarioSyncEnqueue.enqueueScenarioFirestoreSync.mockReset();
+    objectUploadService.deleteImageByUrl.mockReset();
   });
 
   test("createScenario: commit MySQL rồi enqueue Redis outbox, không gọi Firestore trực tiếp", async () => {
@@ -232,6 +238,113 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(scenarioFirestore.deleteScenarioContent).not.toHaveBeenCalled();
   });
 
+  test("updateScenario: FeatureImage đổi → xóa ảnh cũ sau commit (tránh rò ảnh rác)", async () => {
+    mockTx();
+    Scenario.findOne.mockResolvedValueOnce({
+      Id: "sid",
+      UserId: "u",
+      Name: "Old",
+      Description: "",
+      Baudrate: null,
+      Parity: "none",
+      StopBits: 1,
+      DataBits: 8,
+      FlowControl: "none",
+      NewLine: "none",
+      Banner1: null,
+      Banner2: null,
+      FeatureImage: "https://res.cloudinary.com/demo/image/upload/v1/serial-commander/4/old.png",
+    });
+    Scenario.update.mockResolvedValue([1]);
+    scenarioSyncEnqueue.enqueueScenarioFirestoreSync.mockResolvedValue(undefined);
+
+    await scenarioService.updateScenario("sid", "u", {
+      ...validPayload,
+      FeatureImage: "https://res.cloudinary.com/demo/image/upload/v1/serial-commander/4/new.png",
+    });
+
+    expect(objectUploadService.deleteImageByUrl).toHaveBeenCalledWith(
+      "https://res.cloudinary.com/demo/image/upload/v1/serial-commander/4/old.png"
+    );
+  });
+
+  test("updateScenario: FeatureImage giữ nguyên → không gọi xóa ảnh", async () => {
+    mockTx();
+    const sameUrl = "https://res.cloudinary.com/demo/image/upload/v1/serial-commander/4/same.png";
+    Scenario.findOne.mockResolvedValueOnce({
+      Id: "sid",
+      UserId: "u",
+      Name: "Old",
+      Description: "",
+      Baudrate: null,
+      Parity: "none",
+      StopBits: 1,
+      DataBits: 8,
+      FlowControl: "none",
+      NewLine: "none",
+      Banner1: null,
+      Banner2: null,
+      FeatureImage: sameUrl,
+    });
+    Scenario.update.mockResolvedValue([1]);
+    scenarioSyncEnqueue.enqueueScenarioFirestoreSync.mockResolvedValue(undefined);
+
+    await scenarioService.updateScenario("sid", "u", { ...validPayload, FeatureImage: sameUrl });
+
+    expect(objectUploadService.deleteImageByUrl).not.toHaveBeenCalled();
+  });
+
+  test("updateScenario: trước đó không có FeatureImage → không gọi xóa ảnh", async () => {
+    mockTx();
+    Scenario.findOne.mockResolvedValueOnce({
+      Id: "sid",
+      UserId: "u",
+      Name: "Old",
+      Description: "",
+      Baudrate: null,
+      Parity: "none",
+      StopBits: 1,
+      DataBits: 8,
+      FlowControl: "none",
+      NewLine: "none",
+      Banner1: null,
+      Banner2: null,
+      FeatureImage: null,
+    });
+    Scenario.update.mockResolvedValue([1]);
+    scenarioSyncEnqueue.enqueueScenarioFirestoreSync.mockResolvedValue(undefined);
+
+    await scenarioService.updateScenario("sid", "u", validPayload);
+
+    expect(objectUploadService.deleteImageByUrl).not.toHaveBeenCalled();
+  });
+
+  test("deleteScenario: scenario có FeatureImage → xóa ảnh sau khi commit", async () => {
+    mockTx();
+    Scenario.findOne.mockResolvedValueOnce({
+      FeatureImage: "https://res.cloudinary.com/demo/image/upload/v1/serial-commander/4/gone.png",
+    });
+    Scenario.destroy.mockResolvedValue(1);
+    scenarioSyncEnqueue.enqueueScenarioFirestoreSync.mockResolvedValue(undefined);
+
+    await scenarioService.deleteScenario("sid", "u");
+
+    expect(objectUploadService.deleteImageByUrl).toHaveBeenCalledWith(
+      "https://res.cloudinary.com/demo/image/upload/v1/serial-commander/4/gone.png"
+    );
+  });
+
+  test("deleteScenario: scenario không có FeatureImage → không gọi xóa ảnh", async () => {
+    mockTx();
+    Scenario.findOne.mockResolvedValueOnce({ FeatureImage: null });
+    Scenario.destroy.mockResolvedValue(1);
+    scenarioSyncEnqueue.enqueueScenarioFirestoreSync.mockResolvedValue(undefined);
+
+    await scenarioService.deleteScenario("sid", "u");
+
+    expect(objectUploadService.deleteImageByUrl).not.toHaveBeenCalled();
+  });
+
   test("getScenarioById 404 khi không có bản ghi", async () => {
     Scenario.findOne.mockResolvedValue(null);
 
@@ -289,8 +402,14 @@ describe("scenarioService (outbox Redis queue)", () => {
 
     expect(Scenario.findAndCountAll).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { IsShared: true, Name: { [Op.like]: "%Demo%" } },
-        attributes: ["Id", "Name", "Description", "ShareCode", "ModifiedAt"],
+        where: {
+          IsShared: true,
+          [Op.or]: [
+            { Name: { [Op.like]: "%Demo%" } },
+            { ShareCode: { [Op.like]: "%Demo%" } },
+          ],
+        },
+        attributes: ["Id", "Name", "Description", "FeatureImage", "ShareCode", "ModifiedAt"],
         limit: 10,
         offset: 0,
       })
@@ -299,6 +418,38 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(out.scenarios[0]).not.toHaveProperty("Content");
     expect(out.scenarios[0]).not.toHaveProperty("UserId");
     expect(out.scenarios[0].Name).toBe("Demo A");
+  });
+
+  test("getPublicScenarios: tìm theo mã chia sẻ (ShareCode) khớp qua Op.or", async () => {
+    Scenario.findAndCountAll = jest.fn().mockResolvedValue({
+      rows: [
+        {
+          dataValues: {
+            Id: "p2",
+            Name: "Một kịch bản bất kỳ",
+            Description: "",
+            ShareCode: "aff311f2c5a1",
+            ModifiedAt: new Date("2026-01-01"),
+          },
+        },
+      ],
+      count: 1,
+    });
+
+    const out = await scenarioService.getPublicScenarios({ search: "aff311f2c5a1" });
+
+    expect(Scenario.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          IsShared: true,
+          [Op.or]: [
+            { Name: { [Op.like]: "%aff311f2c5a1%" } },
+            { ShareCode: { [Op.like]: "%aff311f2c5a1%" } },
+          ],
+        },
+      })
+    );
+    expect(out.scenarios[0].ShareCode).toBe("aff311f2c5a1");
   });
 
   test("getPublicScenarios: không có search → where chỉ lọc IsShared", async () => {
@@ -444,5 +595,98 @@ describe("Guide survives createScenario round-trip", () => {
 
     const createCall = Scenario.create.mock.calls[0][0];
     expect(createCall.Guide).toBeNull();
+  });
+});
+
+describe("normalizeScenarioPayload – FeatureImage field", () => {
+  const { normalizeScenarioPayload } = require("modules/config/services/scenarioValidation");
+
+  it("trims and accepts a valid http(s) URL", () => {
+    const result = normalizeScenarioPayload({
+      ...validPayload,
+      FeatureImage: "  https://example.com/img.png  ",
+    });
+    expect(result.FeatureImage).toBe("https://example.com/img.png");
+  });
+
+  it("accepts undefined FeatureImage as empty string", () => {
+    const result = normalizeScenarioPayload({ ...validPayload });
+    expect(result.FeatureImage).toBe("");
+  });
+
+  it("accepts null FeatureImage as empty string", () => {
+    const result = normalizeScenarioPayload({ ...validPayload, FeatureImage: null });
+    expect(result.FeatureImage).toBe("");
+  });
+
+  it("rejects FeatureImage longer than 1024 chars", () => {
+    const longUrl = "https://example.com/" + "a".repeat(1024);
+    expect(() =>
+      normalizeScenarioPayload({ ...validPayload, FeatureImage: longUrl })
+    ).toThrow();
+  });
+
+  it("rejects FeatureImage that is not http(s)", () => {
+    expect(() =>
+      normalizeScenarioPayload({ ...validPayload, FeatureImage: "javascript:alert(1)" })
+    ).toThrow();
+    expect(() =>
+      normalizeScenarioPayload({ ...validPayload, FeatureImage: "/relative/path.png" })
+    ).toThrow();
+  });
+});
+
+describe("FeatureImage survives createScenario round-trip", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("passes FeatureImage to Scenario.create", async () => {
+    const tx = { commit: jest.fn(), rollback: jest.fn() };
+    sequelize.transaction.mockResolvedValue(tx);
+    Scenario.create.mockResolvedValue({
+      Id: "id1",
+      dataValues: { Id: "id1", Name: "S1", FeatureImage: "https://example.com/a.png" },
+    });
+    scenarioFirestore.getScenarioContentArray.mockResolvedValue(null);
+
+    await scenarioService.createScenario("u1", {
+      ...validPayload,
+      FeatureImage: "https://example.com/a.png",
+    });
+
+    const createCall = Scenario.create.mock.calls[0][0];
+    expect(createCall.FeatureImage).toBe("https://example.com/a.png");
+  });
+
+  it("passes FeatureImage to Scenario.update", async () => {
+    const tx = { commit: jest.fn(), rollback: jest.fn() };
+    sequelize.transaction.mockResolvedValue(tx);
+    Scenario.findOne.mockResolvedValue({ Id: "id1", dataValues: { Id: "id1" } });
+    Scenario.update.mockResolvedValue([1]);
+    scenarioFirestore.getScenarioContentArray.mockResolvedValue(null);
+
+    await scenarioService.updateScenario("id1", "u1", {
+      ...validPayload,
+      FeatureImage: "https://example.com/b.png",
+    });
+
+    const updateCall = Scenario.update.mock.calls[0][0];
+    expect(updateCall.FeatureImage).toBe("https://example.com/b.png");
+  });
+
+  it("stores null when FeatureImage is empty string", async () => {
+    const tx = { commit: jest.fn(), rollback: jest.fn() };
+    sequelize.transaction.mockResolvedValue(tx);
+    Scenario.create.mockResolvedValue({
+      Id: "id2",
+      dataValues: { Id: "id2", Name: "S2", FeatureImage: null },
+    });
+    scenarioFirestore.getScenarioContentArray.mockResolvedValue(null);
+
+    await scenarioService.createScenario("u1", { ...validPayload, FeatureImage: "" });
+
+    const createCall = Scenario.create.mock.calls[0][0];
+    expect(createCall.FeatureImage).toBeNull();
   });
 });

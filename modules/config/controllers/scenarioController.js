@@ -160,9 +160,28 @@ exports.getScenarioByShareCode = async (req, res) => {
  */
 exports.getPublicScenarios = async (req, res) => {
   try {
-    const { search, limit, offset } = req.query;
+    const { search, limit, offset, sort } = req.query;
+
+    if (limit !== undefined && (!/^\d+$/.test(String(limit)) || Number(limit) < 1 || Number(limit) > 100)) {
+      return sendError(res, 400, "limit phải là số nguyên trong khoảng 1-100.", "SCENARIO_PUBLIC_LIST_INVALID_LIMIT");
+    }
+    if (offset !== undefined && (!/^\d+$/.test(String(offset)) || Number(offset) < 0)) {
+      return sendError(res, 400, "offset phải là số nguyên không âm.", "SCENARIO_PUBLIC_LIST_INVALID_OFFSET");
+    }
+    if (sort !== undefined && !scenarioService.PUBLIC_SCENARIO_SORT_KEYS.includes(sort)) {
+      return sendError(
+        res,
+        400,
+        `sort phải là một trong: ${scenarioService.PUBLIC_SCENARIO_SORT_KEYS.join(", ")}.`,
+        "SCENARIO_PUBLIC_LIST_INVALID_SORT"
+      );
+    }
+    if (search !== undefined && (typeof search !== "string" || search.length > 200)) {
+      return sendError(res, 400, "search phải là chuỗi tối đa 200 ký tự.", "SCENARIO_PUBLIC_LIST_INVALID_SEARCH");
+    }
+
     const { scenarios, total, limit: safeLimit, offset: safeOffset } =
-      await scenarioService.getPublicScenarios({ search, limit, offset });
+      await scenarioService.getPublicScenarios({ search, limit, offset, sort });
     return sendSuccess(res, 200, "Lấy danh sách kịch bản công khai thành công.", {
       scenarios,
       pagination: {

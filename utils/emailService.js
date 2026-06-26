@@ -3,6 +3,7 @@ const {
   isDevOtpLogEnabled,
   isEmailTransportConfigured,
 } = require("./emailConfig");
+const { logInfo, logWarn, logError } = require("../kernels/logging/appLogger");
 
 const appName = () => process.env.APP_NAME || "Serial Commander";
 
@@ -206,19 +207,19 @@ const sendPasswordResetEmail = async (to, resetCode) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Password reset email sent:", info.messageId);
+    logInfo("Password reset email sent:", { messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
     if (isDevOtpLogEnabled()) {
       const reason = isEmailTransportConfigured()
         ? "lỗi SMTP/Gmail"
         : "chưa cấu hình GMAIL_* / SMTP_* (dev chỉ load .env.local trước đây — đã sửa load .env + .env.local)";
-      console.warn(
+      logWarn(
         `[EMAIL_DEV_OTP] Không gửi mail (${reason}) — mã đặt lại mật khẩu cho ${to}: ${resetCode}`
       );
       return { success: true, devLogged: true };
     }
-    console.error("Error sending password reset email:", error);
+    logError("Error sending password reset email:", { error: error.message });
     throw error;
   }
 };
@@ -271,19 +272,19 @@ const sendEmailVerificationCodeEmail = async (to, verificationCode) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email verification code sent:", info.messageId);
+    logInfo("Email verification code sent:", { messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
     if (isDevOtpLogEnabled()) {
       const reason = isEmailTransportConfigured()
         ? "lỗi SMTP/Gmail (kiểm tra App Password / From)"
         : "chưa cấu hình GMAIL_* / SMTP_* trong .env hoặc .env.local";
-      console.warn(
+      logWarn(
         `[EMAIL_DEV_OTP] Không gửi mail (${reason}) — mã xác thực cho ${to}: ${verificationCode}`
       );
       return { success: true, devLogged: true };
     }
-    console.error("Error sending verification email:", error);
+    logError("Error sending verification email:", { error: error.message });
     const wrapped = new Error(
       error.message?.includes("Chưa cấu hình")
         ? error.message

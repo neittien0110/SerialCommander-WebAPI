@@ -103,4 +103,80 @@ describe("redisJobLease", () => {
     expect(client.set).toHaveBeenCalled();
     expect(client.del).toHaveBeenCalledWith("lock:y");
   });
+
+  test("Redis status=connecting: chờ ready event rồi chạy worker", async () => {
+    const { runScheduledWorkWithLease } = require("kernels/jobs/redisJobLease");
+
+    let capturedLockValue;
+    const readyListeners = [];
+    const client = {
+      status: "connecting",
+      once: jest.fn().mockImplementation((event, cb) => {
+        if (event === "ready") readyListeners.push(cb);
+      }),
+      removeListener: jest.fn(),
+      set: jest.fn().mockImplementation((key, val) => {
+        capturedLockValue = val;
+        return Promise.resolve("OK");
+      }),
+      get: jest.fn().mockImplementation(() => Promise.resolve(capturedLockValue)),
+      del: jest.fn().mockResolvedValue(1),
+    };
+
+    const worker = jest.fn().mockResolvedValue(undefined);
+    // Kích hoạt ready ngay sau khi once() được đăng ký
+    setImmediate(() => readyListeners.forEach((cb) => cb()));
+
+    const out = await runScheduledWorkWithLease(
+      { getRedis: () => client, lockKey: "lock:conn", lockTtlMs: 5000, logLabel: "t" },
+      worker
+    );
+
+    expect(out.ran).toBe(true);
+    expect(worker).toHaveBeenCalled();
+  });
+
+  test("Redis connect() throw: fallback chạy worker không lock + log warn", async () => {
+    const { runScheduledWorkWithLease } = require("kernels/jobs/redisJobLease");
+    const { logWarn: logWarnMock } = require("kernels/logging/appLogger");
+
+    const client = {
+      status: "disconnected",
+      connect: jest.fn().mockRejectedValue(new Error("ECONNREFUSED")),
+    };
+
+    const worker = jest.fn().mockResolvedValue(undefined);
+    const out = await runScheduledWorkWithLease(
+      { getRedis: () => client, lockKey: "lock:err", lockTtlMs: 5000, logLabel: "t" },
+      worker
+    );
+
+    expect(out.ran).toBe(true);
+    expect(worker).toHaveBeenCalled();
+    expect(logWarnMock).toHaveBeenCalled();
+  });
+
+  test("unlock throw: log warn nhưng không propagate lỗi", async () => {
+    const { runScheduledWorkWithLease } = require("kernels/jobs/redisJobLease");
+    const { logWarn: logWarnMock } = require("kernels/logging/appLogger");
+
+    let capturedLockValue;
+    const client = {
+      status: "ready",
+      set: jest.fn().mockImplementation((key, val) => {
+        capturedLockValue = val;
+        return Promise.resolve("OK");
+      }),
+      get: jest.fn().mockImplementation(() => Promise.resolve(capturedLockValue)),
+      del: jest.fn().mockRejectedValue(new Error("del failed")),
+    };
+
+    const out = await runScheduledWorkWithLease(
+      { getRedis: () => client, lockKey: "lock:unlock-err", lockTtlMs: 5000, logLabel: "t" },
+      jest.fn().mockResolvedValue(undefined)
+    );
+
+    expect(out.ran).toBe(true);
+    expect(logWarnMock).toHaveBeenCalledWith(expect.stringContaining("unlock failed"), expect.any(Object));
+  });
 });

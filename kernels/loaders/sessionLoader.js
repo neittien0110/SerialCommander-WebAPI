@@ -1,5 +1,6 @@
 const session = require("express-session");
 const Redis = require("ioredis");
+const { logWarn, logError } = require("../logging/appLogger");
 
 function buildSessionStore() {
   // Jest/integration tests: memory store — tránh TCPWRAP open handle từ ioredis
@@ -10,7 +11,7 @@ function buildSessionStore() {
   const sessionRedisUrl = process.env.SESSION_REDIS_URL || process.env.RATE_LIMIT_REDIS_URL;
   if (!sessionRedisUrl) {
     if (process.env.NODE_ENV === "production") {
-      console.error(
+      logError(
         "❌ CRITICAL: SESSION_REDIS_URL (or RATE_LIMIT_REDIS_URL) is required in production. Exiting..."
       );
       process.exit(1);
@@ -29,13 +30,13 @@ function buildSessionStore() {
     return new RedisStore({ client: redisClient });
   } catch (error) {
     if (process.env.NODE_ENV === "production") {
-      console.error(
+      logError(
         "❌ CRITICAL: Cannot initialize Redis session store in production:",
-        error.message
+        { error: error.message }
       );
       process.exit(1);
     }
-    console.warn("[session] Cannot initialize Redis session store:", error.message);
+    logWarn("[session] Cannot initialize Redis session store:", { error: error.message });
     return undefined;
   }
 }

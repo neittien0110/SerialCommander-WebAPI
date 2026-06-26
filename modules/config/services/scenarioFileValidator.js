@@ -1,5 +1,11 @@
 "use strict";
 
+/**
+ * SỬA RULE Ở ĐÂY THÌ PHẢI SỬA CẢ BẢN FRONTEND
+ * `SerialCommander-EndUser-main/src/utils/scenarioFileValidator.ts` (port 1:1, dùng cho
+ * auto-validate đồng bộ trong Scenario Designer). Xem test đối chiếu
+ * `SerialCommander-EndUser-main/src/utils/scenarioFileValidator.parity.test.ts`.
+ */
 const jsonMap = require("json-source-map");
 const { validateScenarioFlow } = require("./scenarioFlowValidator");
 
@@ -23,8 +29,8 @@ const CONTENT_TYPE_ALIASES = {
 };
 
 const DEPRECATED_TYPE_WARNINGS = {
-  toogle: 'Type "toogle" đã lỗi thời — dùng "toggle".',
-  toogle2: 'Type "toogle2" đã lỗi thời — dùng "toggle2".',
+  toogle: 'Type "toogle" is deprecated — use "toggle".',
+  toogle2: 'Type "toogle2" is deprecated — use "toggle2".',
 };
 
 /** Khớp frontend: PollIntervalMs tối thiểu và ngân sách poll tổng khuyến nghị. */
@@ -68,7 +74,7 @@ function validatePollConfiguration(content, pointers) {
 
     if (typeof pollMs !== "number" || !Number.isFinite(pollMs)) {
       warnings.push({
-        message: `PollIntervalMs của ${basePath} phải là số.`,
+        message: `PollIntervalMs of ${basePath} must be a number.`,
         path: `${basePath}.PollIntervalMs`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null,
@@ -79,7 +85,7 @@ function validatePollConfiguration(content, pointers) {
     if (pollMs > 0 && pollMs < POLL_MIN_INTERVAL_MS) {
       warnings.push({
         message:
-          `PollIntervalMs của ${basePath} (${pollMs}) dưới ngưỡng tối thiểu ${POLL_MIN_INTERVAL_MS}ms — client sẽ không poll.`,
+          `PollIntervalMs of ${basePath} (${pollMs}) is below the minimum threshold of ${POLL_MIN_INTERVAL_MS}ms — the client will not poll.`,
         path: `${basePath}.PollIntervalMs`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null,
@@ -95,7 +101,7 @@ function validatePollConfiguration(content, pointers) {
       if (!tx0) {
         warnings.push({
           message:
-            `PollIntervalMs của ${basePath} được bật nhưng TxFormats[0] trống — poll sẽ không gửi lệnh.`,
+            `PollIntervalMs of ${basePath} is enabled but TxFormats[0] is empty — polling will not send any command.`,
           path: `${basePath}.TxFormats`,
           line: loc ? loc.line : null,
           column: loc ? loc.column : null,
@@ -109,7 +115,7 @@ function validatePollConfiguration(content, pointers) {
   if (activePollers.length > 1) {
     warnings.push({
       message:
-        `Scenario có ${activePollers.length} block bật PollIntervalMs. Nên dùng một block poll và RxSourceBlockNo cho gauge/chart để tránh quá tải serial.`,
+        `Scenario has ${activePollers.length} blocks with PollIntervalMs enabled. Consider using one polling block with RxSourceBlockNo for gauge/chart to avoid serial overload.`,
       path: "Content",
       line: null,
       column: null,
@@ -123,7 +129,7 @@ function validatePollConfiguration(content, pointers) {
   if (aggregateHz > MAX_AGGREGATE_POLL_HZ) {
     warnings.push({
       message:
-        `Tổng tốc độ poll ước tính ${aggregateHz.toFixed(1)} lệnh/s (khuyến nghị ≤ ${MAX_AGGREGATE_POLL_HZ}/s). Tăng PollIntervalMs hoặc gom poll về một block.`,
+        `Estimated aggregate poll rate ${aggregateHz.toFixed(1)} cmd/s (recommended ≤ ${MAX_AGGREGATE_POLL_HZ}/s). Increase PollIntervalMs or consolidate polling into one block.`,
       path: "Content",
       line: null,
       column: null,
@@ -193,7 +199,7 @@ function validateContentArray(content, pointers) {
 
   if (!Array.isArray(content)) {
     return {
-      errors: [{ message: "Content phải là một mảng.", path: "Content", line: null, column: null }],
+      errors: [{ message: '"Content" must be an array.', path: "Content", line: null, column: null }],
       warnings
     };
   }
@@ -205,7 +211,7 @@ function validateContentArray(content, pointers) {
     if (item === null || typeof item !== "object") {
       const loc = getPositionForPath(pointers, basePointer);
       errors.push({
-        message: `Phần tử ${basePath} không phải là một đối tượng.`,
+        message: `Element ${basePath} is not an object.`,
         path: basePath,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -218,7 +224,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/Type`;
       const loc = getPositionForPath(pointers, ptr);
       errors.push({
-        message: `Trường "Type" của ${basePath} thiếu hoặc không hợp lệ.`,
+        message: `Field "Type" of ${basePath} is missing or invalid.`,
         path: `${basePath}.Type`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -227,7 +233,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/Type`;
       const loc = getPositionForPath(pointers, ptr);
       errors.push({
-        message: `Trường "Type" của ${basePath} phải là chuỗi không rỗng.`,
+        message: `Field "Type" of ${basePath} must be a non-empty string.`,
         path: `${basePath}.Type`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -236,11 +242,10 @@ function validateContentArray(content, pointers) {
       const rawType = item.Type;
       const alias = CONTENT_TYPE_ALIASES[rawType];
       if (alias) {
-        item.Type = alias;
         const ptr = `${basePointer}/Type`;
         const loc = getPositionForPath(pointers, ptr);
         warnings.push({
-          message: DEPRECATED_TYPE_WARNINGS[rawType] || `Type "${rawType}" đã được chuẩn hóa thành "${alias}".`,
+          message: DEPRECATED_TYPE_WARNINGS[rawType] || `Type "${rawType}" has been normalized to "${alias}".`,
           path: `${basePath}.Type`,
           line: loc ? loc.line : null,
           column: loc ? loc.column : null
@@ -250,7 +255,7 @@ function validateContentArray(content, pointers) {
         const loc = getPositionForPath(pointers, ptr);
         const canonicalList = [...new Set([...VALID_CONTENT_TYPES, ...Object.keys(CONTENT_TYPE_ALIASES)])];
         errors.push({
-          message: `"Type" của ${basePath} không hợp lệ. Giá trị hợp lệ: ${canonicalList.join(", ")}.`,
+          message: `"Type" of ${basePath} is invalid. Valid values: ${canonicalList.join(", ")}.`,
           path: `${basePath}.Type`,
           line: loc ? loc.line : null,
           column: loc ? loc.column : null
@@ -263,7 +268,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/Name`;
       const loc = getPositionForPath(pointers, ptr);
       errors.push({
-        message: `Trường "Name" của ${basePath} thiếu.`,
+        message: `Field "Name" of ${basePath} is missing.`,
         path: `${basePath}.Name`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -272,7 +277,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/Name`;
       const loc = getPositionForPath(pointers, ptr);
       errors.push({
-        message: `Trường "Name" của ${basePath} phải là chuỗi không rỗng.`,
+        message: `Field "Name" of ${basePath} must be a non-empty string.`,
         path: `${basePath}.Name`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -284,7 +289,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/Labels`;
       const loc = getPositionForPath(pointers, ptr);
       warnings.push({
-        message: `Trường "Labels" của ${basePath} nên là mảng.`,
+        message: `Field "Labels" of ${basePath} should be an array.`,
         path: `${basePath}.Labels`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -296,7 +301,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/TxFormats`;
       const loc = getPositionForPath(pointers, ptr);
       warnings.push({
-        message: `Trường "TxFormats" của ${basePath} nên là mảng.`,
+        message: `Field "TxFormats" of ${basePath} should be an array.`,
         path: `${basePath}.TxFormats`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -308,7 +313,7 @@ function validateContentArray(content, pointers) {
       const ptr = `${basePointer}/Params`;
       const loc = getPositionForPath(pointers, ptr);
       warnings.push({
-        message: `Trường "Params" của ${basePath} nên là mảng hoặc null.`,
+        message: `Field "Params" of ${basePath} should be an array or null.`,
         path: `${basePath}.Params`,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -337,7 +342,7 @@ function validateScenarioFile(rawJson) {
   if (typeof rawJson !== "string") {
     return {
       valid: false,
-      errors: [{ message: "Đầu vào phải là chuỗi JSON (nội dung file).", path: null, line: null, column: null }],
+      errors: [{ message: "Input must be a JSON string (file content).", path: null, line: null, column: null }],
       warnings: []
     };
   }
@@ -346,7 +351,7 @@ function validateScenarioFile(rawJson) {
   if (trimmed === "") {
     return {
       valid: false,
-      errors: [{ message: "File trống hoặc không có nội dung.", path: null, line: null, column: null }],
+      errors: [{ message: "File is empty or has no content.", path: null, line: null, column: null }],
       warnings: []
     };
   }
@@ -363,7 +368,7 @@ function validateScenarioFile(rawJson) {
     return {
       valid: false,
       errors: [{
-        message: parseErr && parseErr.message ? parseErr.message : "Lỗi cú pháp JSON.",
+        message: parseErr && parseErr.message ? parseErr.message : "JSON syntax error.",
         path: null,
         line: loc ? loc.line : null,
         column: loc ? loc.column : null
@@ -377,7 +382,7 @@ function validateScenarioFile(rawJson) {
     return {
       valid: false,
       errors: [{
-        message: "Gốc phải là một đối tượng JSON.",
+        message: "Root must be a JSON object.",
         path: null,
         line: loc ? loc.line : 1,
         column: loc ? loc.column : 1
@@ -391,7 +396,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/Name";
     const loc = getPositionForPath(pointers, ptr);
     errors.push({
-      message: "Trường \"Name\" (tên kịch bản) bắt buộc và phải là chuỗi không rỗng.",
+      message: 'Field "Name" (scenario name) is required and must be a non-empty string.',
       path: "Name",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -403,7 +408,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/Description";
     const loc = getPositionForPath(pointers, ptr);
     warnings.push({
-      message: "Trường \"Description\" nên là chuỗi.",
+      message: 'Field "Description" should be a string.',
       path: "Description",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -415,7 +420,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/Content";
     const loc = getPositionForPath(pointers, ptr);
     errors.push({
-      message: "Trường \"Content\" (danh sách khối lệnh) bắt buộc.",
+      message: 'Field "Content" (command block list) is required.',
       path: "Content",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -431,7 +436,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/Banners";
     const loc = getPositionForPath(pointers, ptr);
     warnings.push({
-      message: "Trường \"Banners\" nên là mảng chuỗi.",
+      message: 'Field "Banners" should be an array of strings.',
       path: "Banners",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -443,7 +448,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/Baudrate";
     const loc = getPositionForPath(pointers, ptr);
     warnings.push({
-      message: "Trường \"Baudrate\" nên là số.",
+      message: 'Field "Baudrate" should be a number.',
       path: "Baudrate",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -455,7 +460,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/Parity";
     const loc = getPositionForPath(pointers, ptr);
     warnings.push({
-      message: `Trường "Parity" nên là một trong: ${validParities.join(", ")}.`,
+      message: `Field "Parity" should be one of: ${validParities.join(", ")}.`,
       path: "Parity",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -467,7 +472,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/StopBits";
     const loc = getPositionForPath(pointers, ptr);
     warnings.push({
-      message: `Trường "StopBits" nên là 1, 1.5 hoặc 2.`,
+      message: `Field "StopBits" should be 1, 1.5, or 2.`,
       path: "StopBits",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null
@@ -478,7 +483,7 @@ function validateScenarioFile(rawJson) {
     const ptr = "/DataBits";
     const loc = getPositionForPath(pointers, ptr);
     warnings.push({
-      message: "Trường \"DataBits\" nên là 7 hoặc 8.",
+      message: 'Field "DataBits" should be 7 or 8.',
       path: "DataBits",
       line: loc ? loc.line : null,
       column: loc ? loc.column : null

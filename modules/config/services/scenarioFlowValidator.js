@@ -1,5 +1,10 @@
 "use strict";
 
+/**
+ * SỬA RULE Ở ĐÂY THÌ PHẢI SỬA CẢ BẢN FRONTEND
+ * `SerialCommander-EndUser-main/src/utils/scenarioFlowValidator.ts` (port 1:1). Xem test đối chiếu
+ * `SerialCommander-EndUser-main/src/utils/scenarioFileValidator.parity.test.ts`.
+ */
 const VALID_OPS = ["contains", "matches", "empty", "not_empty"];
 const VALID_HANDLES = ["next", "true", "false"];
 
@@ -16,7 +21,7 @@ function validateScenarioFlow(flow, content) {
   if (flow === undefined || flow === null) return { errors, warnings };
   if (typeof flow !== "object" || Array.isArray(flow)) {
     errors.push({
-      message: "Trường \"Flow\" phải là một đối tượng { nodes, edges }.",
+      message: 'Field "Flow" must be an object { nodes, edges }.',
       path: "Flow",
       line: null,
       column: null,
@@ -29,7 +34,7 @@ function validateScenarioFlow(flow, content) {
 
   if (!Array.isArray(nodes)) {
     errors.push({
-      message: "Flow.nodes phải là mảng.",
+      message: "Flow.nodes must be an array.",
       path: "Flow.nodes",
       line: null,
       column: null,
@@ -39,7 +44,7 @@ function validateScenarioFlow(flow, content) {
 
   if (!Array.isArray(edges)) {
     errors.push({
-      message: "Flow.edges phải là mảng.",
+      message: "Flow.edges must be an array.",
       path: "Flow.edges",
       line: null,
       column: null,
@@ -67,7 +72,7 @@ function validateScenarioFlow(flow, content) {
     const base = `Flow.nodes[${index}]`;
     if (!node || typeof node !== "object") {
       errors.push({
-        message: `${base} không phải đối tượng.`,
+        message: `${base} is not an object.`,
         path: base,
         line: null,
         column: null,
@@ -76,14 +81,14 @@ function validateScenarioFlow(flow, content) {
     }
 
     if (typeof node.id !== "string" || !node.id.trim()) {
-      errors.push({ message: `${base}.id bắt buộc.`, path: `${base}.id`, line: null, column: null });
+      errors.push({ message: `${base}.id is required.`, path: `${base}.id`, line: null, column: null });
     } else {
       nodeIds.add(node.id);
     }
 
     if (node.kind !== "block" && node.kind !== "condition") {
       errors.push({
-        message: `${base}.kind phải là "block" hoặc "condition".`,
+        message: `${base}.kind must be "block" or "condition".`,
         path: `${base}.kind`,
         line: null,
         column: null,
@@ -94,14 +99,14 @@ function validateScenarioFlow(flow, content) {
     if (node.kind === "block") {
       if (typeof node.blockNo !== "number") {
         errors.push({
-          message: `${base}.blockNo phải là số (chỉ mục block trong Content).`,
+          message: `${base}.blockNo must be a number (block index in Content).`,
           path: `${base}.blockNo`,
           line: null,
           column: null,
         });
       } else if (!blockNosFromContent.has(node.blockNo) && node.blockNo >= (content?.length ?? 0)) {
         warnings.push({
-          message: `${base} tham chiếu blockNo ${node.blockNo} có thể không khớp Content (theo thứ tự mảng).`,
+          message: `${base} references blockNo ${node.blockNo} which may not match Content (by array order).`,
           path: `${base}.blockNo`,
           line: null,
           column: null,
@@ -113,7 +118,7 @@ function validateScenarioFlow(flow, content) {
       const c = node.condition;
       if (!c || typeof c !== "object") {
         errors.push({
-          message: `${base}.condition bắt buộc cho node condition.`,
+          message: `${base}.condition is required for condition nodes.`,
           path: `${base}.condition`,
           line: null,
           column: null,
@@ -121,7 +126,7 @@ function validateScenarioFlow(flow, content) {
       } else {
         if (typeof c.blockNo !== "number") {
           errors.push({
-            message: `${base}.condition.blockNo phải là số.`,
+            message: `${base}.condition.blockNo must be a number.`,
             path: `${base}.condition.blockNo`,
             line: null,
             column: null,
@@ -129,7 +134,7 @@ function validateScenarioFlow(flow, content) {
         }
         if (!VALID_OPS.includes(c.op)) {
           errors.push({
-            message: `${base}.condition.op không hợp lệ. Giá trị: ${VALID_OPS.join(", ")}.`,
+            message: `${base}.condition.op is invalid. Valid values: ${VALID_OPS.join(", ")}.`,
             path: `${base}.condition.op`,
             line: null,
             column: null,
@@ -137,7 +142,7 @@ function validateScenarioFlow(flow, content) {
         }
         if ((c.op === "contains" || c.op === "matches") && (!c.value || String(c.value).trim() === "")) {
           warnings.push({
-            message: `${base}.condition nên có value khi op=${c.op}.`,
+            message: `${base}.condition should have a value when op=${c.op}.`,
             path: `${base}.condition.value`,
             line: null,
             column: null,
@@ -149,7 +154,7 @@ function validateScenarioFlow(flow, content) {
       const hasFalse = edges.some((e) => e && e.source === node.id && e.sourceHandle === "false");
       if (!hasTrue) {
         warnings.push({
-          message: `Condition "${node.id}" chưa nối nhánh true.`,
+          message: `Condition "${node.id}" is not connected to a true branch.`,
           path: "Flow.edges",
           line: null,
           column: null,
@@ -157,7 +162,7 @@ function validateScenarioFlow(flow, content) {
       }
       if (!hasFalse) {
         warnings.push({
-          message: `Condition "${node.id}" chưa nối nhánh false.`,
+          message: `Condition "${node.id}" is not connected to a false branch.`,
           path: "Flow.edges",
           line: null,
           column: null,
@@ -169,12 +174,12 @@ function validateScenarioFlow(flow, content) {
   edges.forEach((edge, index) => {
     const base = `Flow.edges[${index}]`;
     if (!edge || typeof edge !== "object") {
-      errors.push({ message: `${base} không phải đối tượng.`, path: base, line: null, column: null });
+      errors.push({ message: `${base} is not an object.`, path: base, line: null, column: null });
       return;
     }
     if (!nodeIds.has(edge.source)) {
       errors.push({
-        message: `${base}.source "${edge.source}" không tồn tại trong Flow.nodes.`,
+        message: `${base}.source "${edge.source}" does not exist in Flow.nodes.`,
         path: `${base}.source`,
         line: null,
         column: null,
@@ -182,7 +187,7 @@ function validateScenarioFlow(flow, content) {
     }
     if (!nodeIds.has(edge.target)) {
       errors.push({
-        message: `${base}.target "${edge.target}" không tồn tại trong Flow.nodes.`,
+        message: `${base}.target "${edge.target}" does not exist in Flow.nodes.`,
         path: `${base}.target`,
         line: null,
         column: null,
@@ -190,7 +195,7 @@ function validateScenarioFlow(flow, content) {
     }
     if (!VALID_HANDLES.includes(edge.sourceHandle)) {
       errors.push({
-        message: `${base}.sourceHandle phải là next, true hoặc false.`,
+        message: `${base}.sourceHandle must be next, true, or false.`,
         path: `${base}.sourceHandle`,
         line: null,
         column: null,

@@ -30,6 +30,11 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Hướng dẫn sử dụng (Markdown) — do chủ dự án viết'
     },
+    FeatureImage: {
+      type: DataTypes.STRING(1024),
+      allowNull: true,
+      comment: 'URL ảnh đại diện kịch bản, hiển thị ở thẻ Discover'
+    },
     IsShared: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,

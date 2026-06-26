@@ -2,6 +2,7 @@ node_modules
 .git
 .env
 .env.local
+.env.local.secrets
 .env.production
 uploads
 coverage
