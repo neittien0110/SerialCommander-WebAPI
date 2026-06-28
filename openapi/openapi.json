@@ -14,13 +14,13 @@
   "paths": {
     "/": {
       "get": {
-        "summary": "Thông tin tổng quan API",
+        "summary": "API overview and status",
         "tags": [
           "System"
         ],
         "responses": {
           "200": {
-            "description": "Thông tin trạng thái API",
+            "description": "API status information",
             "content": {
               "application/json": {
                 "schema": {
@@ -32,294 +32,9 @@
         }
       }
     },
-    "/scenarios/myscenarios": {
-      "get": {
-        "summary": "Danh sách kịch bản của user",
-        "tags": [
-          "Scenario"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "legacy_array",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "1"
-              ]
-            },
-            "description": "Nếu \"1\", trả mảng JSON thuần (tương thích cũ). Mặc định envelope { message, scenarios }."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Envelope chuẩn hoặc mảng (legacy)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ScenarioListSuccessResponse"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "additionalProperties": true
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scenarios/{scenarioId}": {
-      "get": {
-        "summary": "Chi tiết kịch bản (field kịch bản gộp root cùng message)",
-        "tags": [
-          "Scenario"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "scenarioId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Kịch bản",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioMergedResourceSuccessResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scenarios/export/{scenarioId}": {
-      "get": {
-        "summary": "Xuất kịch bản (JSON, Content-Disposition attachment)",
-        "tags": [
-          "Scenario"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "scenarioId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "File JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioMergedResourceSuccessResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/verify": {
-      "post": {
-        "summary": "Kiểm tra tính hợp lệ của payload kịch bản",
-        "tags": [
-          "Scenario"
-        ],
-        "responses": {
-          "200": {
-            "description": "Kết quả kiểm tra kịch bản",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioVerifySuccessResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/verify-file": {
-      "post": {
-        "summary": "Kiểm tra cú pháp file kịch bản JSON",
-        "tags": [
-          "Scenario"
-        ],
-        "responses": {
-          "200": {
-            "description": "Kết quả kiểm tra file",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioVerifyFileSuccessResponse"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/share/{shareCode}": {
-      "get": {
-        "summary": "Lấy kịch bản theo mã chia sẻ (public)",
-        "tags": [
-          "Scenario"
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "shareCode",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Kịch bản (field gộp root)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScenarioMergedResourceSuccessResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/ops/sync-jobs": {
-      "get": {
-        "summary": "Tóm tắt SyncJobs (đồng bộ MySQL/Firestore) cho vận hành",
-        "tags": [
-          "Admin"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Thống kê theo trạng thái + mẫu failed gần nhất",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SyncJobsOpsSummaryEnvelope"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Không có hoặc token không hợp lệ"
-          }
-        }
-      }
-    },
-    "/admin/ops/metrics": {
-      "get": {
-        "summary": "Counters process + gauges SyncJobs (JSON hoặc ?format=prometheus)",
-        "tags": [
-          "Admin"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "format",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "prometheus"
-              ]
-            },
-            "description": "Nếu `prometheus` trả body text exposition"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "metrics JSON hoặc Prometheus text (`format=prometheus`)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppOpsMetricsEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/auth/login": {
       "post": {
-        "summary": "Đăng nhập người dùng",
+        "summary": "Log in a user",
         "tags": [
           "Authentication"
         ],
@@ -348,7 +63,7 @@
         },
         "responses": {
           "200": {
-            "description": "Đăng nhập thành công",
+            "description": "Login successful",
             "content": {
               "application/json": {
                 "schema": {
@@ -358,7 +73,7 @@
             }
           },
           "401": {
-            "description": "Sai email hoặc mật khẩu",
+            "description": "Incorrect email or password",
             "content": {
               "application/json": {
                 "schema": {
@@ -372,7 +87,7 @@
     },
     "/api/auth/register": {
       "post": {
-        "summary": "Đăng ký tài khoản mới",
+        "summary": "Register a new account",
         "tags": [
           "Authentication"
         ],
@@ -403,7 +118,7 @@
         },
         "responses": {
           "201": {
-            "description": "Đăng ký thành công",
+            "description": "Registration successful",
             "content": {
               "application/json": {
                 "schema": {
@@ -413,7 +128,7 @@
             }
           },
           "400": {
-            "description": "Email hoặc username đã tồn tại",
+            "description": "Email or username already exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -427,13 +142,13 @@
     },
     "/api/auth/verify-email": {
       "post": {
-        "summary": "Xác thực email bằng mã OTP",
+        "summary": "Verify email with OTP code",
         "tags": [
           "Authentication"
         ],
         "responses": {
           "200": {
-            "description": "Xác thực thành công hoặc đã xác thực trước đó",
+            "description": "Verification successful or already verified",
             "content": {
               "application/json": {
                 "schema": {
@@ -443,7 +158,7 @@
             }
           },
           "400": {
-            "description": "Mã không hợp lệ, hết hạn, hoặc input sai",
+            "description": "Invalid code, expired, or bad input",
             "content": {
               "application/json": {
                 "schema": {
@@ -457,13 +172,13 @@
     },
     "/api/auth/resend-verification-code": {
       "post": {
-        "summary": "Gửi lại mã xác thực email",
+        "summary": "Resend email verification code",
         "tags": [
           "Authentication"
         ],
         "responses": {
           "200": {
-            "description": "Gửi mã thành công",
+            "description": "Code sent successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -473,7 +188,7 @@
             }
           },
           "400": {
-            "description": "Input không hợp lệ",
+            "description": "Invalid input",
             "content": {
               "application/json": {
                 "schema": {
@@ -487,7 +202,7 @@
     },
     "/api/auth/google/status": {
       "get": {
-        "summary": "Trạng thái cấu hình Google OAuth",
+        "summary": "Google OAuth configuration status",
         "tags": [
           "Authentication"
         ]
@@ -495,13 +210,13 @@
     },
     "/api/auth/google": {
       "get": {
-        "summary": "Đăng nhập bằng Google OAuth",
+        "summary": "Sign in with Google OAuth",
         "tags": [
           "Authentication"
         ],
         "responses": {
           "302": {
-            "description": "Redirect đến Google OAuth"
+            "description": "Redirect to Google OAuth"
           }
         }
       }
@@ -514,14 +229,14 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect về frontend với token"
+            "description": "Redirect to frontend with token"
           }
         }
       }
     },
     "/api/auth/forgot-password": {
       "post": {
-        "summary": "Yêu cầu mã đặt lại mật khẩu",
+        "summary": "Request a password reset code",
         "tags": [
           "Authentication"
         ],
@@ -545,7 +260,7 @@
         },
         "responses": {
           "200": {
-            "description": "Email đã được gửi (nếu email tồn tại)",
+            "description": "Email sent (if account exists)",
             "content": {
               "application/json": {
                 "schema": {
@@ -555,7 +270,7 @@
             }
           },
           "400": {
-            "description": "Input không hợp lệ hoặc tài khoản Google",
+            "description": "Invalid input or Google-only account",
             "content": {
               "application/json": {
                 "schema": {
@@ -569,7 +284,7 @@
     },
     "/api/auth/verify-reset-code": {
       "post": {
-        "summary": "Xác thực mã đặt lại mật khẩu",
+        "summary": "Verify password reset code",
         "tags": [
           "Authentication"
         ],
@@ -597,7 +312,7 @@
         },
         "responses": {
           "200": {
-            "description": "Mã hợp lệ",
+            "description": "Code is valid",
             "content": {
               "application/json": {
                 "schema": {
@@ -607,7 +322,7 @@
             }
           },
           "400": {
-            "description": "Mã không hợp lệ hoặc đã hết hạn",
+            "description": "Invalid or expired code",
             "content": {
               "application/json": {
                 "schema": {
@@ -621,7 +336,7 @@
     },
     "/api/auth/reset-password": {
       "post": {
-        "summary": "Đặt lại mật khẩu với mã xác thực",
+        "summary": "Reset password with verification code",
         "tags": [
           "Authentication"
         ],
@@ -654,7 +369,7 @@
         },
         "responses": {
           "200": {
-            "description": "Đặt lại mật khẩu thành công",
+            "description": "Password reset successful",
             "content": {
               "application/json": {
                 "schema": {
@@ -664,7 +379,7 @@
             }
           },
           "400": {
-            "description": "Mã không hợp lệ hoặc mật khẩu không đủ dài",
+            "description": "Invalid code or password too short",
             "content": {
               "application/json": {
                 "schema": {
@@ -678,13 +393,13 @@
     },
     "/api/auth/refresh": {
       "post": {
-        "summary": "Làm mới access token dùng refresh token (HttpOnly cookie sc_refresh_token)",
+        "summary": "Refresh access token using HttpOnly cookie sc_refresh_token",
         "tags": [
           "Authentication"
         ],
         "responses": {
           "200": {
-            "description": "Access token mới đã được gắn vào cookie sc_auth_token",
+            "description": "New access token set in cookie sc_auth_token",
             "content": {
               "application/json": {
                 "schema": {
@@ -694,7 +409,7 @@
             }
           },
           "401": {
-            "description": "Refresh token thiếu, không hợp lệ, hoặc đã hết hạn",
+            "description": "Refresh token missing, invalid, or expired",
             "content": {
               "application/json": {
                 "schema": {
@@ -708,13 +423,13 @@
     },
     "/api/auth/logout": {
       "post": {
-        "summary": "Đăng xuất — xóa HttpOnly cookie sc_auth_token và sc_refresh_token",
+        "summary": "Log out — clears HttpOnly cookies sc_auth_token and sc_refresh_token",
         "tags": [
           "Authentication"
         ],
         "responses": {
           "200": {
-            "description": "Đăng xuất thành công"
+            "description": "Logout successful"
           }
         }
       }
@@ -741,7 +456,7 @@
           },
           "trace_id": {
             "type": "string",
-            "description": "Mã bắc cầu request (trùng header X-Request-Id) khi có requestTraceMiddleware."
+            "description": "Request trace ID (matches X-Request-Id header) when requestTraceMiddleware is active."
           },
           "error": {
             "type": "object",
@@ -752,7 +467,7 @@
             "properties": {
               "code": {
                 "type": "string",
-                "description": "Ví dụ RATE_LIMIT_EXCEEDED, NO_TOKEN, VALIDATION_FAILED."
+                "description": "Example: RATE_LIMIT_EXCEEDED, NO_TOKEN, VALIDATION_FAILED."
               },
               "message": {
                 "type": "string"
@@ -789,7 +504,7 @@
         "required": [
           "message"
         ],
-        "description": "Kịch bản: sendSuccess merge DTO — Name, Content, Banners, ... cùng cấp với message (client cũ vẫn đọc field kịch bản ở root).",
+        "description": "Scenario: sendSuccess merge DTO — Name, Content, Banners, ... at root level alongside message (legacy clients read scenario fields at root).",
         "properties": {
           "message": {
             "type": "string"
@@ -809,7 +524,7 @@
         "properties": {
           "message": {
             "type": "string",
-            "example": "Đăng nhập thành công"
+            "example": "Login successful"
           },
           "token": {
             "type": "string"
@@ -956,7 +671,7 @@
           },
           "trace_id": {
             "type": "string",
-            "description": "Mã bắc cầu request (trùng header X-Request-Id)."
+            "description": "Request trace ID (matches X-Request-Id header)."
           },
           "version": {
             "type": "string"
