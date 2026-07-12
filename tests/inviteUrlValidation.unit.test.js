@@ -35,6 +35,20 @@ describe("isAllowedInviteUrl", () => {
     expect(isAllowedInviteUrl("not-a-url", { frontendUrls: FRONTENDS })).toBe(false);
   });
 
+  test("chấp nhận subdomain qua entry wildcard", () => {
+    const withWildcard = `${FRONTENDS},https://*.toolhub.app`;
+    expect(
+      isAllowedInviteUrl("https://serial2.toolhub.app/?invite=abc", {
+        frontendUrls: withWildcard,
+      })
+    ).toBe(true);
+    expect(
+      isAllowedInviteUrl("https://serial2.toolhub.app.evil.com/?invite=abc", {
+        frontendUrls: withWildcard,
+      })
+    ).toBe(false);
+  });
+
   test("bỏ qua entry FRONTEND_URLS không parse được", () => {
     expect(
       isAllowedInviteUrl("http://localhost:5173/x", {

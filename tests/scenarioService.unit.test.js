@@ -472,7 +472,7 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(out.offset).toBe(0);
   });
 
-  test("shareScenario: share lần đầu sinh ShareCode 12 ký tự hex", async () => {
+  test("shareScenario: share lần đầu sinh ShareCode 6 chữ số", async () => {
     const saveMock = jest.fn().mockResolvedValue(undefined);
     const scenario = { IsShared: false, ShareCode: null, save: saveMock };
     Scenario.findOne.mockResolvedValue(scenario);
@@ -480,7 +480,7 @@ describe("scenarioService (outbox Redis queue)", () => {
     const result = await scenarioService.shareScenario("id1", "user1");
 
     expect(result.IsShared).toBe(true);
-    expect(result.ShareCode).toMatch(/^[a-f0-9]{12}$/);
+    expect(result.ShareCode).toMatch(/^\d{6}$/);
     expect(saveMock).toHaveBeenCalledTimes(1);
   });
 
@@ -493,7 +493,7 @@ describe("scenarioService (outbox Redis queue)", () => {
 
     expect(result.IsShared).toBe(true);
     expect(result.ShareCode).not.toBe("oldcode12345");
-    expect(result.ShareCode).toMatch(/^[a-f0-9]{12}$/);
+    expect(result.ShareCode).toMatch(/^\d{6}$/);
   });
 
   test("shareScenario: unshare giữ ShareCode cũ, không sinh mới", async () => {

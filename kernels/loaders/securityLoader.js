@@ -4,6 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const { requestTraceMiddleware } = require("../middlewares/requestTraceMiddleware");
 const { csrfProtection } = require("../middlewares/csrfMiddleware");
+const { wildcardToRegExp } = require("../../utils/wildcardPattern");
 
 function isDevPrivateNetworkOrigin(origin) {
   if (process.env.NODE_ENV === "production") return false;
@@ -29,6 +30,8 @@ function isDevPrivateNetworkOrigin(origin) {
 /**
  * Origin có nằm trong allowlist FE không (dùng chung cho CORS và CSRF guard).
  * origin rỗng (same-origin / client không phải trình duyệt) coi như hợp lệ.
+ * Entry chứa "*" là wildcard subdomain, vd "https://*.toolhub.app" chấp nhận
+ * mọi FE deploy trên subdomain của toolhub.app (serial, serial2, ...).
  */
 function isAllowedOrigin(origin) {
   if (!origin) return true;
@@ -39,7 +42,12 @@ function isAllowedOrigin(origin) {
     .map((x) => x.trim().replace(/\/+$/, ""))
     .filter(Boolean);
   const normalizedOrigin = origin.replace(/\/+$/, "");
-  if (allowlist.includes(normalizedOrigin)) return true;
+  const matched = allowlist.some((entry) =>
+    entry.includes("*")
+      ? wildcardToRegExp(entry).test(normalizedOrigin)
+      : entry === normalizedOrigin
+  );
+  if (matched) return true;
   if (isDevPrivateNetworkOrigin(normalizedOrigin)) return true;
   return false;
 }

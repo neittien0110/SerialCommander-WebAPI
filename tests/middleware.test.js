@@ -8,7 +8,8 @@ process.env.NODE_ENV = "test";
 // ≥16 ký tự: khi test tạm NODE_ENV=production, getJwtSecret() bắt buộc secret đủ dài
 process.env.JWT_SECRET = "test-jwt-secret-for-jest-ok";
 process.env.FRONTEND_URL = "http://localhost:5173";
-process.env.FRONTEND_URLS = "http://localhost:5173,https://serial.toolhub.app";
+process.env.FRONTEND_URLS =
+  "http://localhost:5173,https://serial.toolhub.app,https://*.toolhub.app";
 
 require("rootpath")();
 
@@ -17,7 +18,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const { verifyToken, verifyAdmin } = require("kernels/middlewares/authMiddleware");
-const { isDevPrivateNetworkOrigin } = require("kernels/loaders/securityLoader");
+const { isAllowedOrigin } = require("kernels/loaders/securityLoader");
 
 // ─── Setup test app ──────────────────────────────────────────────────────────
 
@@ -25,24 +26,10 @@ function buildApp() {
   const app = express();
   app.use(express.json());
 
-  // CORS config (mirror cấu hình trong securityLoader.js)
+  // Dùng đúng isAllowedOrigin production (như configureSecurity trong securityLoader.js)
   app.use(
     cors({
-      origin: (origin, cb) => {
-        if (!origin) return cb(null, true);
-        const configured =
-          process.env.FRONTEND_URLS ||
-          process.env.FRONTEND_URL ||
-          "http://localhost:5173";
-        const allowlist = configured
-          .split(",")
-          .map((x) => x.trim().replace(/\/+$/, ""))
-          .filter(Boolean);
-        const normalizedOrigin = origin.replace(/\/+$/, "");
-        if (allowlist.includes(normalizedOrigin)) return cb(null, true);
-        if (isDevPrivateNetworkOrigin(normalizedOrigin)) return cb(null, true);
-        return cb(null, false);
-      },
+      origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
       credentials: true,
     })
   );
@@ -326,6 +313,31 @@ describe("CORS configuration", () => {
     expect(res.headers["access-control-allow-origin"]).toBe(
       "http://192.168.5.175:5173"
     );
+  });
+
+  test("✅ Cho phép subdomain toolhub.app qua wildcard (serial2)", async () => {
+    const res = await request(app)
+      .get("/protected")
+      .set("Origin", "https://serial2.toolhub.app")
+      .set("Authorization", "Bearer invalid");
+
+    expect(res.headers["access-control-allow-origin"]).toBe(
+      "https://serial2.toolhub.app"
+    );
+  });
+
+  test("❌ Wildcard không khớp domain giả mạo dạng x.toolhub.app.evil.com", async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    const res = await request(buildApp())
+      .get("/protected")
+      .set("Origin", "https://serial2.toolhub.app.evil.com")
+      .set("Authorization", "Bearer invalid");
+
+    expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+
+    process.env.NODE_ENV = originalEnv;
   });
 
   test("❌ Chặn origin không được phép trong production", async () => {
