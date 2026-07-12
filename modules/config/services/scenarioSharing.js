@@ -1,16 +1,19 @@
 /**
  * Logic chia sẻ kịch bản qua mã ShareCode công khai.
  */
+const crypto = require("crypto");
 const { Scenario } = require("../../../models");
-const { v4: uuidv4 } = require("uuid");
 const { attachScenarioContent } = require("./scenarioContentMapper");
 
 /**
- * Creates a new share code.
- * @returns {string} The generated share code.
+ * Sinh mã chia sẻ 6 chữ số (000000–999999) — ngắn, dễ đọc và chia sẻ bằng miệng
+ * (yêu cầu GVHD, issue #8). Va chạm được xử lý bằng vòng lặp retry trong
+ * shareScenario() dựa trên ràng buộc UNIQUE của cột ShareCode. Mã 12-hex cũ vẫn
+ * tra cứu bình thường vì lookup so khớp chính xác, không giả định độ dài.
+ * @returns {string} The generated 6-digit share code.
  */
 function generateShareCode() {
-  return uuidv4().replace(/-/g, "").slice(0, 12);
+  return crypto.randomInt(0, 1000000).toString().padStart(6, "0");
 }
 
 /**

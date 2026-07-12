@@ -16,10 +16,9 @@ beforeEach(() => jest.clearAllMocks());
 
 describe("scenarioSharing", () => {
   describe("generateShareCode", () => {
-    test("trả chuỗi 12 ký tự, không có dấu gạch ngang", () => {
+    test("trả chuỗi 6 chữ số (issue #8)", () => {
       const code = generateShareCode();
-      expect(code).toHaveLength(12);
-      expect(code).not.toContain("-");
+      expect(code).toMatch(/^\d{6}$/);
     });
   });
 
