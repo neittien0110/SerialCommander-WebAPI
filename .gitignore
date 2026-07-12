@@ -37,3 +37,7 @@ test-results/
 **/*.md
 *.pdf
 docs/
+
+# DB dumps / backups — KHÔNG commit (tránh lộ dữ liệu production)
+prod_backup_*.sql
+*_backup_*.sql
