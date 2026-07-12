@@ -20,12 +20,24 @@ const inviteEmailLimit = createSimpleRateLimit({
   maxRequests: Number(process.env.REMOTE_SESSION_INVITE_EMAIL_PER_MIN ?? 10),
 });
 
+// Chống dò mã ngắn: giới hạn chặt số lần thử resolve (theo user đã đăng nhập).
+const resolveCodeLimit = createSimpleRateLimit({
+  windowMs: 60 * 1000,
+  maxRequests: Number(process.env.REMOTE_RESOLVE_CODE_PER_MIN ?? 30),
+});
+
 router.post("/session", verifyToken, createSessionLimit, remoteSessionController.createSession);
 router.post(
   "/session/verify",
   verifyToken,
   verifySessionLimit,
   remoteSessionController.verifySession
+);
+router.post(
+  "/session/resolve-code",
+  verifyToken,
+  resolveCodeLimit,
+  remoteSessionController.resolveShortCode
 );
 router.post(
   "/session/invite-email",

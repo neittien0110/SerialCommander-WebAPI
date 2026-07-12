@@ -32,6 +32,40 @@ function generateJoinChallenge() {
   return crypto.randomBytes(JOIN_CHALLENGE_BYTES).toString("hex");
 }
 
+// Mã ngắn để NHẬP TAY (issue UX): 8 ký tự base32 Crockford (bỏ I/L/O/U dễ nhầm).
+// ~40 bit; an toàn nhờ resolve có rate-limit + verifyToken + control vẫn cần Host grant.
+const SHORT_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const SHORT_CODE_LEN = 8;
+const SHORT_CODE_PATTERN = /^[0-9A-Z]{8}$/;
+
+function generateShortJoinCode() {
+  const bytes = crypto.randomBytes(SHORT_CODE_LEN);
+  let out = "";
+  for (let i = 0; i < SHORT_CODE_LEN; i += 1) {
+    out += SHORT_CODE_ALPHABET[bytes[i] & 31]; // 32 ký tự → &31 không lệch phân phối
+  }
+  return out;
+}
+
+/** Chuẩn hoá mã ngắn người dùng gõ: viết hoa, map ký tự dễ nhầm (O→0, I/L→1). */
+function normalizeShortCode(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value
+    .trim()
+    .toUpperCase()
+    .replace(/O/g, "0")
+    .replace(/[IL]/g, "1")
+    .replace(/[^0-9A-Z]/g, "");
+  return SHORT_CODE_PATTERN.test(normalized) ? normalized : null;
+}
+
+/** Phân giải mã ngắn → {sessionId, joinChallenge} hoặc null. */
+async function resolveShortJoinCode(code) {
+  const normalized = normalizeShortCode(code);
+  if (!normalized) return null;
+  return remoteSessionStore.resolveShortCode(normalized);
+}
+
 function normalizeJoinChallenge(value) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
@@ -76,6 +110,14 @@ async function createRemoteSession(userId) {
     expiresAt,
   });
 
+  // Mã ngắn gõ tay: best-effort (cần Redis). Chỉ trả về nếu lưu được để resolve luôn khớp.
+  const joinShortCode = generateShortJoinCode();
+  const shortCodeSaved = await remoteSessionStore.saveShortCode(
+    joinShortCode,
+    sessionId,
+    joinChallenge
+  );
+
   const passwdSync = await mosquittoPasswdSync.upsertMqttBrokerUser(sessionId, mqttPasswordToken);
 
   /** Gợi ý frontend khi broker chưa nhận user → CONNACK Not authorized. */
@@ -95,6 +137,7 @@ async function createRemoteSession(userId) {
     mqttPasswordToken,
     envelopeToken,
     joinChallenge,
+    ...(shortCodeSaved ? { joinShortCode } : {}),
     expiresAt,
     ttlSeconds,
     topicPrefix: `serial/chat/${sessionId}`,
@@ -174,7 +217,18 @@ async function kickStationById(sessionId, stationId, requestUserId) {
     newJoinChallenge
   );
   if (!applied) return { kicked: false };
-  return { kicked: true, joinChallenge: newJoinChallenge };
+  // Xoay mã ngắn theo challenge mới — mã ngắn cũ mang challenge cũ nên tự vô hiệu.
+  const joinShortCode = generateShortJoinCode();
+  const shortCodeSaved = await remoteSessionStore.saveShortCode(
+    joinShortCode,
+    normalizedId,
+    newJoinChallenge
+  );
+  return {
+    kicked: true,
+    joinChallenge: newJoinChallenge,
+    ...(shortCodeSaved ? { joinShortCode } : {}),
+  };
 }
 
 /**
@@ -212,5 +266,6 @@ module.exports = {
   registerStation,
   kickStationById,
   endRemoteSession,
+  resolveShortJoinCode,
   isUserBlocked: remoteSessionStore.isUserBlocked,
 };

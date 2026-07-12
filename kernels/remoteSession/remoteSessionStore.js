@@ -257,8 +257,55 @@ async function isUserBlocked(sessionId, userId) {
   return record.blockedUsers.includes(String(userId));
 }
 
+const SHORT_CODE_PREFIX = "remote:shortcode:";
+
+/** Lưu ánh xạ mã ngắn → {sessionId, joinChallenge} vào Redis (TTL theo phiên).
+ * Best-effort: không có Redis thì bỏ qua (frontend fallback về link/mã dài). */
+async function saveShortCode(code, sessionId, joinChallenge) {
+  const client = getRedisClient();
+  if (!client || !code) return false;
+  try {
+    if (client.status !== "ready") await client.connect();
+    await client.set(
+      `${SHORT_CODE_PREFIX}${code}`,
+      JSON.stringify({ sessionId, joinChallenge }),
+      "EX",
+      ttlSeconds()
+    );
+    return true;
+  } catch (err) {
+    logWarn("[remote-session] saveShortCode failed", { message: err.message });
+    return false;
+  }
+}
+
+/** Phân giải mã ngắn → {sessionId, joinChallenge} hoặc null (không có/hết hạn). */
+async function resolveShortCode(code) {
+  const client = getRedisClient();
+  if (!client || !code) return null;
+  try {
+    if (client.status !== "ready") await client.connect();
+    const raw = await client.get(`${SHORT_CODE_PREFIX}${code}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      typeof parsed.sessionId !== "string" ||
+      typeof parsed.joinChallenge !== "string"
+    ) {
+      return null;
+    }
+    return { sessionId: parsed.sessionId, joinChallenge: parsed.joinChallenge };
+  } catch (err) {
+    logWarn("[remote-session] resolveShortCode failed", { message: err.message });
+    return null;
+  }
+}
+
 module.exports = {
   ttlSeconds,
+  saveShortCode,
+  resolveShortCode,
   saveSession,
   getSession,
   deleteSession,

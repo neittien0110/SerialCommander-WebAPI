@@ -34,6 +34,20 @@ exports.createSession = async (req, res) => {
   }
 };
 
+/** Phân giải mã ngắn gõ tay → sessionId + joinChallenge (rồi FE gọi verify như bình thường). */
+exports.resolveShortCode = async (req, res) => {
+  const requestUserId = req.user?.id;
+  if (!requestUserId) {
+    return sendError(res, 401, "Vui lòng đăng nhập để tham gia phiên kết nối", "UNAUTHORIZED");
+  }
+  const code = req.body?.code ?? req.body?.shortCode;
+  const resolved = await remoteSessionService.resolveShortJoinCode(code);
+  if (!resolved) {
+    return sendError(res, 404, "Mã tham gia không đúng hoặc đã hết hạn", "REMOTE_SHORT_CODE_INVALID");
+  }
+  return sendSuccess(res, 200, "Mã hợp lệ", resolved);
+};
+
 exports.verifySession = async (req, res) => {
   const requestUserId = req.user?.id;
   if (!requestUserId) {
