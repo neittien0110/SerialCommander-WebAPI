@@ -58,6 +58,11 @@ ORDER=(
   "2026-06-03_set_schema_version_13.sql"
   "2026-06-07_scenarios_timestamps.sql"
   "2026-06-07_set_schema_version_14.sql"
+  "2026-06-21_create_scenario_draft_shares.sql"
+  "2026-06-21_set_schema_version_15.sql"
+  "2026-06-24_add_guide_to_scenarios.sql"
+  "2026-06-24_add_feature_image_to_scenarios.sql"
+  "2026-07-12_add_banners_to_scenarios.sql"
 )
 
 IGNORE_DUPLICATE="${IGNORE_DUPLICATE:-0}"

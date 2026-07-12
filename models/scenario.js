@@ -107,6 +107,11 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Nội dung banner 2'
     },
+    Banners: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Danh sách banner (JSON mảng chuỗi) — không giới hạn 2 dòng như Banner1/Banner2 (issue #10)'
+    },
     Content: {
       type: DataTypes.TEXT('long'),
       allowNull: true,

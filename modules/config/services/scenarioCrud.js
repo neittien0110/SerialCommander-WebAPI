@@ -43,6 +43,7 @@ async function createScenario(userId, scenarioData) {
         NewLine: normalized.NewLine,
         Banner1: banners[0] ?? normalized.Banner1 ?? null,
         Banner2: banners[1] ?? normalized.Banner2 ?? null,
+        Banners: JSON.stringify(Array.isArray(banners) ? banners : []),
         Content: JSON.stringify(normalized.Content),
       },
       { transaction: tx }
@@ -118,6 +119,7 @@ async function updateScenario(scenarioId, userId, updateData) {
     NewLine: normalized.NewLine,
     Banner1: banners[0] ?? normalized.Banner1 ?? null,
     Banner2: banners[1] ?? normalized.Banner2 ?? null,
+    Banners: JSON.stringify(Array.isArray(banners) ? banners : []),
     Content: JSON.stringify(normalized.Content),
   };
 

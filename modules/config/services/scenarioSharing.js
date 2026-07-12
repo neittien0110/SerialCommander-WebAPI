@@ -94,6 +94,7 @@ async function getScenarioByShareCode(shareCode) {
       "FlowControl",
       "Banner1",
       "Banner2",
+      "Banners",
       "Content",
     ],
   });
