@@ -28,7 +28,7 @@ async function enqueueScenarioFirestoreSync(operationType, scenarioId, payload, 
       return;
     }
     if (operationType === "scenario_upsert") {
-      await scenarioSyncQueue.enqueueSync(scenarioId, payload?.content || []);
+      await scenarioSyncQueue.enqueueSync(scenarioId, payload?.content || [], payload?.modifiedAt ?? null);
       return;
     }
     throw new Error(`Unsupported sync operation: ${operationType}`);

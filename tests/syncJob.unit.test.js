@@ -32,15 +32,21 @@ function freshMocks() {
 
   const reconcileDlqBatch = jest.fn().mockResolvedValue([]);
 
+  const scenarioSyncWatermark = {
+    markScenariosSynced: jest.fn().mockResolvedValue(undefined),
+    reconcileUnsyncedScenarios: jest.fn().mockResolvedValue([]),
+  };
+
   jest.doMock("../kernels/metrics/appMetrics", () => appMetrics);
   jest.doMock("../kernels/logging/appLogger", () => logger);
   jest.doMock("../kernels/scenarioSyncQueue", () => scenarioSyncQueue);
   jest.doMock("../kernels/scenarioSyncStatus", () => scenarioSyncStatus);
   jest.doMock("../modules/config/services/scenarioFirestoreService", () => scenarioFirestore);
   jest.doMock("../kernels/scenarioDlqReconcile", () => ({ reconcileDlqBatch }));
+  jest.doMock("../kernels/scenarioSyncWatermark", () => scenarioSyncWatermark);
 
   const mod = require("../kernels/syncJob");
-  return { mod, appMetrics, logger, scenarioSyncQueue, scenarioSyncStatus, scenarioFirestore, reconcileDlqBatch };
+  return { mod, appMetrics, logger, scenarioSyncQueue, scenarioSyncStatus, scenarioFirestore, reconcileDlqBatch, scenarioSyncWatermark };
 }
 
 describe("syncJob — computeRetryDelayMs", () => {
@@ -72,7 +78,7 @@ describe("syncJob — processQueueBatch", () => {
   });
 
   test("xử lý upsert batch đúng cách", async () => {
-    const { mod, scenarioSyncQueue, scenarioFirestore, appMetrics } = freshMocks();
+    const { mod, scenarioSyncQueue, scenarioFirestore, appMetrics, scenarioSyncWatermark } = freshMocks();
     scenarioSyncQueue.claimBatch.mockResolvedValue({
       items: [{ action: "sync_firestore", scenarioId: "s1", content: [{ cmd: "AT" }] }],
       raws: ["raw1"],
@@ -83,6 +89,21 @@ describe("syncJob — processQueueBatch", () => {
     ]);
     expect(appMetrics.inc).toHaveBeenCalledWith("scenario_outbox_upserts_total", 1);
     expect(appMetrics.inc).toHaveBeenCalledWith("scenario_outbox_batches_total");
+    // Watermark SyncedAt được ghi sau khi batch thành công
+    expect(scenarioSyncWatermark.markScenariosSynced).toHaveBeenCalledWith([
+      { action: "sync_firestore", scenarioId: "s1", content: [{ cmd: "AT" }] },
+    ]);
+  });
+
+  test("batch lỗi → KHÔNG ghi watermark", async () => {
+    const { mod, scenarioSyncQueue, scenarioFirestore, scenarioSyncWatermark } = freshMocks();
+    scenarioSyncQueue.claimBatch.mockResolvedValue({
+      items: [{ action: "sync_firestore", scenarioId: "s1", content: [] }],
+      raws: ["raw1"],
+    });
+    scenarioFirestore.batchSaveScenarioContent.mockRejectedValue(new Error("Firestore down"));
+    await mod.processQueueBatch();
+    expect(scenarioSyncWatermark.markScenariosSynced).not.toHaveBeenCalled();
   });
 
   test("xử lý delete batch đúng cách", async () => {

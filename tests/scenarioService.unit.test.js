@@ -95,7 +95,7 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(scenarioSyncEnqueue.enqueueScenarioFirestoreSync).toHaveBeenCalledWith(
       "scenario_upsert",
       "new-id",
-      { content: expect.any(Array) }
+      { content: expect.any(Array), modifiedAt: null }
     );
     expect(tx.rollback).not.toHaveBeenCalled();
     expect(scenarioFirestore.saveScenarioContent).not.toHaveBeenCalled();
@@ -166,7 +166,7 @@ describe("scenarioService (outbox Redis queue)", () => {
     expect(scenarioSyncEnqueue.enqueueScenarioFirestoreSync).toHaveBeenCalledWith(
       "scenario_upsert",
       "sid",
-      { content: expect.any(Array) }
+      { content: expect.any(Array), modifiedAt: null }
     );
     expect(scenarioFirestore.saveScenarioContent).not.toHaveBeenCalled();
   });

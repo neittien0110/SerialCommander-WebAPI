@@ -10,6 +10,7 @@ const scenarioSyncStatus = require("../../../kernels/scenarioSyncStatus");
 const { normalizeScenarioPayload } = require("./scenarioValidation");
 const {
   toPlainRecord,
+  hasStoredMysqlContent,
   attachScenarioContent,
   attachScenarioContentFromMap,
   applySyncStatus,
@@ -62,6 +63,8 @@ async function createScenario(userId, scenarioData) {
 
   const syncStatus = await enqueueAfterCommit("scenario_upsert", newScenario.Id, {
     content: normalized.Content,
+    // Snapshot ModifiedAt cho watermark SyncedAt (xem kernels/scenarioSyncWatermark.js)
+    modifiedAt: newScenario.ModifiedAt ?? null,
   });
 
   const plain = toPlainRecord(newScenario);
@@ -135,8 +138,15 @@ async function updateScenario(scenarioId, userId, updateData) {
     throw error;
   }
 
+  // ModifiedAt do MySQL đặt (ON UPDATE CURRENT_TIMESTAMP) — đọc lại làm snapshot
+  // cho watermark SyncedAt; so sánh thuần giờ DB, không dùng đồng hồ app.
+  const fresh = await Scenario.findOne({
+    where: { Id: scenarioId, UserId: userId },
+    attributes: ["ModifiedAt"],
+  });
   const syncStatus = await enqueueAfterCommit("scenario_upsert", scenarioId, {
     content: normalized.Content,
+    modifiedAt: fresh?.ModifiedAt ?? null,
   });
 
   if (existing.FeatureImage && existing.FeatureImage !== nextValues.FeatureImage) {
@@ -202,9 +212,12 @@ async function getScenariosByUserId(userId, options = {}) {
     offset,
   });
 
-  const ids = rows.map((row) => toPlainRecord(row)?.Id).filter(Boolean);
+  const plainRows = rows.map((row) => toPlainRecord(row)).filter(Boolean);
+  const ids = plainRows.map((row) => row.Id).filter(Boolean);
+  // Firestore chỉ còn là fallback cho bản ghi legacy thiếu Content MySQL — tránh round-trip thừa.
+  const legacyIds = plainRows.filter((row) => !hasStoredMysqlContent(row)).map((row) => row.Id);
   const [contentMap, statusMap] = await Promise.all([
-    scenarioFirestore.batchGetScenarioContentArrays(ids),
+    scenarioFirestore.batchGetScenarioContentArrays(legacyIds),
     scenarioSyncStatus.getScenarioSyncStatusBatch(ids),
   ]);
   const scenarios = rows

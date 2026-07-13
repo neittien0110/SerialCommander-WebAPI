@@ -17,7 +17,7 @@ describe("scenarioSyncEnqueue (redis outbox only)", () => {
 
   test("scenario_upsert → enqueueSync", async () => {
     await enqueueScenarioFirestoreSync("scenario_upsert", "id-1", { content: [{ a: 1 }] });
-    expect(scenarioSyncQueue.enqueueSync).toHaveBeenCalledWith("id-1", [{ a: 1 }]);
+    expect(scenarioSyncQueue.enqueueSync).toHaveBeenCalledWith("id-1", [{ a: 1 }], null);
   });
 
   test("scenario_delete → enqueueDelete", async () => {

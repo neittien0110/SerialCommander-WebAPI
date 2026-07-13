@@ -4,5 +4,5 @@
  * (UPDATE app_schema_registry SET schema_version = ... sau khi chạy SQL).
  */
 module.exports = {
-  EXPECTED_SCHEMA_VERSION: 15,
+  EXPECTED_SCHEMA_VERSION: 16,
 };

@@ -83,11 +83,16 @@ async function enqueue(payload) {
   }
 }
 
-async function enqueueSync(scenarioId, content) {
+/**
+ * @param {Date|string|null} [modifiedAt] Snapshot ModifiedAt của dòng lúc enqueue —
+ * worker dùng làm watermark SyncedAt (so sánh thuần giờ DB, xem scenarioSyncWatermark.js).
+ */
+async function enqueueSync(scenarioId, content, modifiedAt = null) {
   return enqueue({
     scenarioId,
     content: Array.isArray(content) ? content : [],
     action: ACTIONS.SYNC_FIRESTORE,
+    modifiedAt: modifiedAt instanceof Date ? modifiedAt.toISOString() : modifiedAt,
   });
 }
 

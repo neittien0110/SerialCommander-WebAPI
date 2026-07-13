@@ -63,6 +63,11 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.NOW,
       comment: 'Thời điểm sửa — MySQL ON UPDATE CURRENT_TIMESTAMP'
     },
+    SyncedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Watermark Firestore: bằng ModifiedAt của lần sửa đã sync. NULL/cũ hơn ModifiedAt = chưa sync — reconcile re-enqueue'
+    },
     Baudrate: {
       type: DataTypes.INTEGER,
       allowNull: true,

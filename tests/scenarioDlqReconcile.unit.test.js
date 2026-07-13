@@ -63,7 +63,7 @@ describe("scenarioDlqReconcile", () => {
 
     expect(result).toEqual({ outcome: "upsert_requeued_from_mysql", scenarioId: "abc" });
     expect(scenarioSyncQueue.removeFromDlq).toHaveBeenCalledWith("raw-1");
-    expect(scenarioSyncQueue.enqueueSync).toHaveBeenCalledWith("abc", [{ step: 1 }]);
+    expect(scenarioSyncQueue.enqueueSync).toHaveBeenCalledWith("abc", [{ step: 1 }], null);
     expect(scenarioSyncStatus.setScenarioSyncStatus).toHaveBeenCalledWith("abc", "pending");
   });
 

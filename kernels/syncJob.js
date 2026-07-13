@@ -7,9 +7,13 @@ const scenarioSyncQueue = require("./scenarioSyncQueue");
 const scenarioSyncStatus = require("./scenarioSyncStatus");
 const scenarioFirestore = require("../modules/config/services/scenarioFirestoreService");
 const { reconcileDlqBatch } = require("./scenarioDlqReconcile");
+const scenarioSyncWatermark = require("./scenarioSyncWatermark");
 
 const POLL_MS = Number(process.env.SCENARIO_OUTBOX_POLL_MS || 1000);
 const DLQ_RECONCILE_EVERY_POLLS = Number(process.env.SCENARIO_DLQ_RECONCILE_EVERY_POLLS || 60);
+const WATERMARK_RECONCILE_EVERY_POLLS = Number(
+  process.env.SCENARIO_WATERMARK_RECONCILE_EVERY_POLLS || 60
+);
 const DLQ_ALERT_THRESHOLD = Number(process.env.SCENARIO_DLQ_ALERT_THRESHOLD || 1);
 const BATCH_SIZE = Number(process.env.SCENARIO_OUTBOX_BATCH_SIZE || 10);
 const MAX_RETRY_DELAY_MS = Number(process.env.SCENARIO_OUTBOX_MAX_RETRY_MS || 30000);
@@ -69,6 +73,28 @@ async function maybeReconcileDlq() {
   }
 }
 
+let watermarkPollCount = 0;
+
+/**
+ * Lưới an toàn cho sync rớt: re-enqueue scenario có Content MySQL mới hơn Firestore
+ * (SyncedAt NULL/cũ). Bắt cả ca enqueue "degraded" vốn không để lại dấu vết trong Redis.
+ */
+async function maybeReconcileWatermark() {
+  if (WATERMARK_RECONCILE_EVERY_POLLS <= 0) return;
+  watermarkPollCount += 1;
+  if (watermarkPollCount % WATERMARK_RECONCILE_EVERY_POLLS !== 0) return;
+  try {
+    const results = await scenarioSyncWatermark.reconcileUnsyncedScenarios();
+    if (results.length > 0) {
+      appMetrics.inc("scenario_outbox_watermark_reconcile_total", results.length);
+    }
+  } catch (err) {
+    logWarn("[syncJob] watermark reconciliation failed", {
+      message: err.message || String(err),
+    });
+  }
+}
+
 async function processQueueBatch() {
   if (processing) return;
   if (isBackoffActive()) return;
@@ -116,6 +142,8 @@ async function processQueueBatch() {
         await scenarioSyncStatus.setScenarioSyncStatus(item.scenarioId, "success");
       }
     }
+    // Watermark SyncedAt (best-effort) — nguồn cho reconcile phát hiện sync rớt.
+    await scenarioSyncWatermark.markScenariosSynced(items);
     claimedRaws = [];
     resetBackoffState();
     scenarioSyncStatus.recordFirestoreBatchSuccess();
@@ -149,6 +177,7 @@ async function processQueueBatch() {
     }
     processing = false;
     await maybeReconcileDlq();
+    await maybeReconcileWatermark();
   }
 }
 

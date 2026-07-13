@@ -48,7 +48,7 @@ async function reconcileDlqItem(entry) {
       return { outcome: "upsert_missing_mysql_enqueue_delete", scenarioId };
     }
     const content = parseContentFromRow(row);
-    await scenarioSyncQueue.enqueueSync(scenarioId, content);
+    await scenarioSyncQueue.enqueueSync(scenarioId, content, row.ModifiedAt ?? null);
     await scenarioSyncStatus.setScenarioSyncStatus(scenarioId, "pending");
     return { outcome: "upsert_requeued_from_mysql", scenarioId };
   }
