@@ -17,6 +17,7 @@ jest.mock("child_process", () => ({
 jest.mock("../kernels/logging/appLogger", () => ({
   logInfo: jest.fn(),
   logWarn: jest.fn(),
+  logError: jest.fn(),
 }));
 
 const { execFile } = require("child_process");

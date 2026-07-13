@@ -142,6 +142,28 @@ describe("verifySession", () => {
     );
   });
 
+  test("host refresh: mqttBrokerReloadFailed=true khi passwd ghi được nhưng broker KHÔNG reload", async () => {
+    remoteSessionService.normalizeSessionId.mockReturnValue("abcd1234abcd1234");
+    remoteSessionService.getSessionRecord.mockResolvedValue({ mqttPasswordToken: "tok" });
+    remoteSessionService.isSessionHost.mockReturnValue(true);
+    remoteSessionService.buildSessionCredentials.mockReturnValue({ mqtt: "creds" });
+    mosquittoPasswdSync.ensureMqttBrokerUser.mockResolvedValue({
+      synced: true,
+      passwdReloaded: true,
+      reloadFailed: true,
+    });
+
+    await ctrl.verifySession({
+      user: { id: 1 },
+      body: { sessionId: "abcd1234abcd1234" },
+    }, mockRes());
+
+    expect(sendSuccess).toHaveBeenCalledWith(
+      expect.anything(), 200, expect.any(String),
+      expect.objectContaining({ mqttBrokerReloadFailed: true })
+    );
+  });
+
   test("host refresh: mqttBrokerPasswdHint khi sync thất bại với reason MQTT_PASSWD_FILE", async () => {
     remoteSessionService.normalizeSessionId.mockReturnValue("abcd1234abcd1234");
     remoteSessionService.getSessionRecord.mockResolvedValue({ mqttPasswordToken: "tok" });

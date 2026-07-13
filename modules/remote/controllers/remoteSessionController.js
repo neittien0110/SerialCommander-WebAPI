@@ -92,6 +92,8 @@ exports.verifySession = async (req, res) => {
       ...credentials,
       mqttBrokerPasswdSynced: passwdSync.synced === true,
       mqttBrokerPasswdReloaded: passwdSync.passwdReloaded === true,
+      // Broker không reload được → client sắp CONNACK denied; FE có thể cảnh báo rõ.
+      ...(passwdSync.reloadFailed === true ? { mqttBrokerReloadFailed: true } : {}),
       ...(mqttBrokerPasswdHint ? { mqttBrokerPasswdHint } : {}),
     });
   }
@@ -145,6 +147,8 @@ exports.verifySession = async (req, res) => {
     displayName,
     mqttBrokerPasswdSynced: passwdSync.synced === true,
     mqttBrokerPasswdReloaded: passwdSync.passwdReloaded === true,
+    // Broker không reload được → client sắp CONNACK denied; FE có thể cảnh báo rõ.
+    ...(passwdSync.reloadFailed === true ? { mqttBrokerReloadFailed: true } : {}),
     ...(mqttBrokerPasswdHint ? { mqttBrokerPasswdHint } : {}),
   });
 };

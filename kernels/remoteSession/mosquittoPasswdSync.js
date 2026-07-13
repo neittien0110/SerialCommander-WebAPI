@@ -170,6 +170,8 @@ async function ensureMqttBrokerUser(sessionId, mqttPasswordToken) {
     ...result,
     alreadyPresent,
     passwdReloaded: result.needsReload === true,
+    // Passwd ghi được nhưng broker KHÔNG reload → client sẽ bị CONNACK denied.
+    reloadFailed: result.needsReload === true && result.reloadOk === false,
   };
 }
 
@@ -188,7 +190,10 @@ async function upsertMqttBrokerUser(sessionId, mqttPasswordToken) {
   if (result.needsReload) {
     // Dùng debounced HUP: nhiều phiên tạo đồng thời chia sẻ 1 HUP duy nhất.
     // Thay vì N×1200ms, tất cả hoàn tất sau ~(HUP_DEBOUNCE_MS + MOSQUITTO_RELOAD_DELAY_MS).
-    await scheduleHupOnce();
+    const reloaded = await scheduleHupOnce();
+    // reloadOk=false CHỈ khi reload chắc chắn thất bại (false tường minh) — undefined
+    // từ bản cũ/mock được coi là ok để không báo động giả.
+    return { ...result, reloadOk: reloaded !== false };
   }
 
   return result;

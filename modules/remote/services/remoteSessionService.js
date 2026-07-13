@@ -143,6 +143,10 @@ async function createRemoteSession(userId) {
     topicPrefix: `serial/chat/${sessionId}`,
     mqttBrokerPasswdSynced: passwdSync.synced === true,
     mqttBrokerPasswdReloaded: passwdSync.needsReload === true,
+    // Broker không reload được → client sắp CONNACK denied; FE có thể cảnh báo rõ.
+    ...(passwdSync.needsReload === true && passwdSync.reloadOk === false
+      ? { mqttBrokerReloadFailed: true }
+      : {}),
     ...(mqttBrokerPasswdHint ? { mqttBrokerPasswdHint } : {}),
   };
 }

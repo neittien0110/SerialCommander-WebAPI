@@ -4,7 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-jest.mock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+jest.mock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
 jest.mock("../kernels/remoteSession/mosquittoReload", () => ({
   isDockerCliEnabled: jest.fn(() => false),
   reloadMqttBrokerInDocker: jest.fn().mockResolvedValue(undefined),
@@ -26,7 +26,7 @@ function freshSync(tmpDir) {
   jest.resetModules();
   process.env.MQTT_PASSWD_FILE = path.join(tmpDir, "passwd");
   // Re-require mock module reference sau resetModules (cùng factory, instance mới).
-  jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+  jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
   jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
     isDockerCliEnabled: jest.fn(() => false),
     reloadMqttBrokerInDocker: jest.fn().mockResolvedValue(undefined),
@@ -63,7 +63,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       jest.resetModules();
       fs.chmodSync(tmpDir, 0o500); // không cho tạo subdir mới bên trong
       process.env.MQTT_PASSWD_FILE = path.join(tmpDir, "sub", "passwd");
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         scheduleHupOnce: jest.fn(),
@@ -93,7 +93,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
     test("MQTT_PASSWD_FILE không cấu hình → skip, không tạo dir", async () => {
       jest.resetModules();
       delete process.env.MQTT_PASSWD_FILE;
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         scheduleHupOnce: jest.fn(),
@@ -192,7 +192,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
 
       const out = await sync.upsertMqttBrokerUser(SID, "tok");
 
-      expect(out).toEqual({ synced: true, needsReload: true });
+      expect(out).toEqual({ synced: true, needsReload: true, reloadOk: true });
     });
 
     test("native CLI thất bại → fallback PBKDF2, ghi file thật thành công", async () => {
@@ -214,7 +214,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       fs.writeFileSync(blockerFile, "x");
       process.env.MQTT_PASSWD_FILE = path.join(blockerFile, "passwd");
       jest.resetModules();
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         upsertViaNativePasswd: jest.fn().mockRejectedValue(new Error("no cli")),
@@ -239,7 +239,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       fs.writeFileSync(blockerFile, "x");
       process.env.MQTT_PASSWD_FILE = path.join(blockerFile, "passwd");
       jest.resetModules();
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         upsertViaNativePasswd: jest.fn().mockRejectedValue(new Error("fail")),
@@ -313,7 +313,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       process.env.MQTT_PASSWD_FILE = path.join(tmpDir, "passwd");
       fs.writeFileSync(path.join(tmpDir, "passwd"), `${SID}:hash\n`);
       fs.chmodSync(tmpDir, 0o500); // rename tmp→passwd sẽ throw vì dir read-only
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         removeViaNativePasswd: jest.fn().mockResolvedValue(undefined),
@@ -336,7 +336,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       process.env.MQTT_PASSWD_FILE = path.join(tmpDir, "passwd");
       fs.writeFileSync(path.join(tmpDir, "passwd"), `${SID}:hash\n`);
       fs.chmodSync(tmpDir, 0o500);
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         removeViaNativePasswd: jest.fn().mockRejectedValue(new Error("cli fail")),
@@ -359,7 +359,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       fs.writeFileSync(path.join(tmpDir, "passwd"), `${SID}:hash\n`);
       // Khóa file thành read-only để removePasswdEntryNative (native rename) thất bại trên thư mục read-only.
       fs.chmodSync(tmpDir, 0o500);
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         removeViaNativePasswd: jest.fn().mockRejectedValue(new Error("cli fail")),
@@ -432,7 +432,7 @@ describe("mosquittoPasswdSync — orchestration", () => {
       process.env.MQTT_PASSWD_FILE = path.join(tmpDir, "passwd");
       fs.writeFileSync(path.join(tmpDir, "passwd"), `${SID}:hash1\n`);
       fs.chmodSync(tmpDir, 0o500); // buộc removePasswdEntryNative (rename) throw
-      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+      jest.doMock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
       jest.doMock("../kernels/remoteSession/mosquittoReload", () => ({
         isDockerCliEnabled: jest.fn(() => false),
         reloadMqttBrokerInDocker: jest.fn().mockResolvedValue(undefined),
@@ -450,6 +450,33 @@ describe("mosquittoPasswdSync — orchestration", () => {
       expect(freshR.removeViaNativePasswd).toHaveBeenCalledWith(path.join(tmpDir, "passwd"), SID);
       expect(freshR.removeViaDockerPasswd).toHaveBeenCalledTimes(1);
       expect(freshR.reloadMqttBrokerInDocker).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("reloadOk / reloadFailed — lan truyền reload thất bại", () => {
+    test("scheduleHupOnce trả false → upsert reloadOk=false, ensure reloadFailed=true", async () => {
+      const { r, sync } = freshSync(tmpDir);
+      r.upsertViaNativePasswd.mockResolvedValue(undefined);
+      r.scheduleHupOnce.mockResolvedValue(false);
+
+      const out = await sync.ensureMqttBrokerUser(SID, "tok");
+
+      expect(out).toMatchObject({
+        synced: true,
+        passwdReloaded: true,
+        reloadOk: false,
+        reloadFailed: true,
+      });
+    });
+
+    test("scheduleHupOnce trả true → reloadFailed=false", async () => {
+      const { r, sync } = freshSync(tmpDir);
+      r.upsertViaNativePasswd.mockResolvedValue(undefined);
+      r.scheduleHupOnce.mockResolvedValue(true);
+
+      const out = await sync.ensureMqttBrokerUser(SID, "tok");
+
+      expect(out).toMatchObject({ synced: true, reloadOk: true, reloadFailed: false });
     });
   });
 });

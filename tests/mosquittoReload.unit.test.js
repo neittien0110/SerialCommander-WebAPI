@@ -15,7 +15,7 @@ jest.mock("child_process", () => {
     });
   return { execFile };
 });
-jest.mock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn() }));
+jest.mock("../kernels/logging/appLogger", () => ({ logInfo: jest.fn(), logWarn: jest.fn(), logError: jest.fn() }));
 
 const fs = require("fs");
 const os = require("os");
@@ -141,7 +141,8 @@ describe("mosquittoReload", () => {
       const { execFile, mod } = load();
       execFile.mockImplementation(failExec());
 
-      await expect(mod.reloadMqttBrokerInDocker()).resolves.toBeUndefined();
+      // Reload thất bại giờ trả false (lan truyền lên API thay vì im lặng).
+      await expect(mod.reloadMqttBrokerInDocker()).resolves.toBe(false);
     });
   });
 
@@ -404,6 +405,50 @@ describe("mosquittoReload", () => {
         expect.any(Object),
         expect.any(Function)
       );
+    });
+  });
+
+  describe("lan truyền kết quả reload (chống CONNACK-denied im lặng)", () => {
+    test("host reload cmd FAIL + docker tắt → reloadMqttBroker false + logError", async () => {
+      process.env.MQTT_BROKER_RELOAD_CMD = "pkill -HUP -x mosquitto";
+      delete process.env.MQTT_DOCKER_CLI_ENABLED;
+      const { execFile, mod } = load();
+      execFile.mockImplementation(failExec("pkill: permission denied"));
+      const logger = require("../kernels/logging/appLogger");
+
+      await expect(mod.reloadMqttBroker()).resolves.toBe(false);
+      expect(logger.logError).toHaveBeenCalled();
+    });
+
+    test("host reload cmd thành công → reloadMqttBroker true, không logError", async () => {
+      process.env.MQTT_BROKER_RELOAD_CMD = "pkill -HUP -x mosquitto";
+      const { execFile, mod } = load();
+      execFile.mockImplementation(okExec());
+      const logger = require("../kernels/logging/appLogger");
+
+      await expect(mod.reloadMqttBroker()).resolves.toBe(true);
+      expect(logger.logError).not.toHaveBeenCalled();
+    });
+
+    test("docker HUP thành công → reloadMqttBrokerInDocker true", async () => {
+      process.env.MQTT_BROKER_HUP_DEBOUNCE_MS = "10";
+      process.env.MQTT_BROKER_RELOAD_DELAY_MS = "0";
+      process.env.MQTT_DOCKER_CLI_ENABLED = "true";
+      process.env.MQTT_BROKER_HUP_CONTAINER = "sc-mqtt";
+      const { execFile, mod } = load();
+      execFile.mockImplementation(okExec());
+
+      await expect(mod.reloadMqttBrokerInDocker()).resolves.toBe(true);
+    });
+
+    test("scheduleHupOnce resolve kết quả reload — false khi không reload được", async () => {
+      process.env.MQTT_BROKER_HUP_DEBOUNCE_MS = "10";
+      process.env.MQTT_BROKER_RELOAD_DELAY_MS = "0";
+      delete process.env.MQTT_BROKER_RELOAD_CMD;
+      delete process.env.MQTT_DOCKER_CLI_ENABLED;
+      const { mod } = load();
+
+      await expect(mod.scheduleHupOnce()).resolves.toBe(false);
     });
   });
 });

@@ -10,7 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
-const { logInfo, logWarn } = require("../logging/appLogger");
+const { logInfo, logWarn, logError } = require("../logging/appLogger");
 const { passwdFilePath } = require("./passwdFileIO");
 
 const execFileAsync = promisify(execFile);
@@ -30,6 +30,8 @@ const _hupWaiters = [];
 /**
  * Lên lịch HUP một lần duy nhất trong cửa sổ debounce.
  * Mọi caller trong cùng cửa sổ đều chờ cùng 1 HUP rồi mới return.
+ * @returns {Promise<boolean>} true nếu broker ĐÃ reload thành công — false nghĩa là
+ * credential mới có thể chưa được broker đọc (client sẽ bị CONNACK Not authorized).
  */
 function scheduleHupOnce() {
   return new Promise((resolve) => {
@@ -38,11 +40,12 @@ function scheduleHupOnce() {
     _hupDebounceTimer = setTimeout(async () => {
       _hupDebounceTimer = null;
       const waiters = _hupWaiters.splice(0);
+      let reloaded = false;
       try {
-        await reloadMqttBroker();
+        reloaded = (await reloadMqttBroker()) === true;
         await new Promise((r) => setTimeout(r, MOSQUITTO_RELOAD_DELAY_MS));
       } finally {
-        for (const w of waiters) w();
+        for (const w of waiters) w(reloaded);
       }
     }, HUP_DEBOUNCE_MS);
   });
@@ -88,7 +91,9 @@ async function reloadMqttBrokerOnHost() {
     logInfo("[mosquitto-passwd] đã reload Mosquitto (host)", { cmd });
     return true;
   } catch (err) {
-    logWarn("[mosquitto-passwd] MQTT_BROKER_RELOAD_CMD thất bại", {
+    // ERROR chứ không phải warn: reload fail nghĩa là mọi phiên MỚI sẽ bị broker
+    // từ chối (CONNACK Not authorized) trong khi API vẫn cấp credentials.
+    logError("[mosquitto-passwd] MQTT_BROKER_RELOAD_CMD thất bại", {
       cmd,
       message: err.message || String(err),
     });
@@ -96,22 +101,33 @@ async function reloadMqttBrokerOnHost() {
   }
 }
 
+/** @returns {Promise<boolean>} true nếu broker đã được reload thành công. */
 async function reloadMqttBroker() {
-  if (await reloadMqttBrokerOnHost()) return;
-  await reloadMqttBrokerInDocker();
+  if (await reloadMqttBrokerOnHost()) return true;
+  const dockerOk = await reloadMqttBrokerInDocker();
+  if (!dockerOk) {
+    const hostCmdConfigured = Boolean((process.env.MQTT_BROKER_RELOAD_CMD || "").trim());
+    if (hostCmdConfigured || isDockerCliEnabled()) {
+      logError(
+        "[mosquitto-passwd] Broker KHÔNG reload được — user phiên mới có thể bị CONNACK Not authorized tới lần reload thành công kế tiếp."
+      );
+    }
+  }
+  return dockerOk;
 }
 
+/** @returns {Promise<boolean>} true nếu HUP hoặc restart container thành công. */
 async function reloadMqttBrokerInDocker() {
   if (!isDockerCliEnabled()) {
     logWarn(
       "[mosquitto-passwd] MQTT_DOCKER_CLI_ENABLED≠true — bỏ qua docker HUP/restart (không mount docker.sock).",
       { code: "MQTT_DOCKER_CLI_DISABLED" }
     );
-    return;
+    return false;
   }
 
   const candidates = dockerBrokerContainerCandidates();
-  if (!candidates.length) return;
+  if (!candidates.length) return false;
 
   for (const name of candidates) {
     try {
@@ -119,7 +135,7 @@ async function reloadMqttBrokerInDocker() {
         timeout: 8000,
       });
       logInfo("[mosquitto-passwd] đã HUP Mosquitto (reload password_file)", { container: name });
-      return;
+      return true;
     } catch {
       /* thử container dev tiếp theo */
     }
@@ -130,7 +146,7 @@ async function reloadMqttBrokerInDocker() {
       await execFileAsync("docker", ["restart", name], { timeout: 25000 });
       logInfo("[mosquitto-passwd] đã restart Mosquitto (reload passwd)", { container: name });
       await new Promise((r) => setTimeout(r, 1500));
-      return;
+      return true;
     } catch {
       /* thử container tiếp */
     }
@@ -140,6 +156,7 @@ async function reloadMqttBrokerInDocker() {
     "[mosquitto-passwd] không HUP/restart được container — broker có thể chưa đọc user mới (Not authorized).",
     { tried: candidates }
   );
+  return false;
 }
 
 /**
