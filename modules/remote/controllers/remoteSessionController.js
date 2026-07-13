@@ -170,6 +170,9 @@ exports.kickSessionStation = async (req, res) => {
   return sendSuccess(res, 200, "Đã ngắt kết nối máy trạm", {
     stationId,
     joinChallenge: result.joinChallenge,
+    // Kick xoay CẢ mã ngắn (mã cũ vô hiệu) — phải trả mã mới để FE cập nhật
+    // modal Share, kẻo host đọc nhầm mã chết cho người tham gia tiếp theo.
+    ...(result.joinShortCode ? { joinShortCode: result.joinShortCode } : {}),
   });
 };
 

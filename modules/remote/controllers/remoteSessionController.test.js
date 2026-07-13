@@ -305,6 +305,32 @@ describe("kickSessionStation", () => {
       expect.objectContaining({ stationId: "st-001", joinChallenge: "newchallenge" })
     );
   });
+
+  test("200: joinShortCode MỚI phải được trả về cho FE cập nhật UI (kick xoay cả mã ngắn)", async () => {
+    remoteSessionService.normalizeSessionId.mockReturnValue("abcd1234abcd1234");
+    remoteSessionService.kickStationById.mockResolvedValue({
+      kicked: true,
+      joinChallenge: "newchallenge",
+      joinShortCode: "AB12CD34",
+    });
+    await ctrl.kickSessionStation({
+      user: { id: 1 }, body: { sessionId: "abcd1234abcd1234", stationId: "st-001" },
+    }, mockRes());
+    expect(sendSuccess).toHaveBeenCalledWith(
+      expect.anything(), 200, expect.any(String),
+      expect.objectContaining({ joinChallenge: "newchallenge", joinShortCode: "AB12CD34" })
+    );
+  });
+
+  test("200: service không trả joinShortCode (lưu mã ngắn fail) → response không có field đó", async () => {
+    remoteSessionService.normalizeSessionId.mockReturnValue("abcd1234abcd1234");
+    remoteSessionService.kickStationById.mockResolvedValue({ kicked: true, joinChallenge: "newchallenge" });
+    await ctrl.kickSessionStation({
+      user: { id: 1 }, body: { sessionId: "abcd1234abcd1234", stationId: "st-001" },
+    }, mockRes());
+    const payload = sendSuccess.mock.calls.at(-1)[3];
+    expect(payload).not.toHaveProperty("joinShortCode");
+  });
 });
 
 // ─── endSession ──────────────────────────────────────────────────────────────
